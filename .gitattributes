@@ -1,0 +1,7 @@
+# 3D model + heavy texture binaries are large — store them via Git LFS, not as
+# raw git blobs (keeps the repo small and stays under host per-file limits).
+*.glb  filter=lfs diff=lfs merge=lfs -text
+*.gltf filter=lfs diff=lfs merge=lfs -text
+*.hdr  filter=lfs diff=lfs merge=lfs -text
+*.exr  filter=lfs diff=lfs merge=lfs -text
+*.ktx2 filter=lfs diff=lfs merge=lfs -text
