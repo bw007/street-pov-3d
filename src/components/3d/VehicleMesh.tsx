@@ -6,6 +6,7 @@ import { useWorldStore } from '../../stores/useWorldStore';
 import { soundManager } from '../../audio/SoundManager';
 import { InspectableObject } from '../../types';
 import { CHUNK_SIZE } from '../../data/streetsData';
+import { getIntersectionSignal, groupForAxis } from '../../utils/trafficSignal';
 
 const BASE = import.meta.env?.BASE_URL || './';
 const BASE_URL = BASE.endsWith('/') ? BASE : BASE + '/';
@@ -22,14 +23,18 @@ interface CarModel {
 
 // Real traffic car variants, spread across every street for variety.
 export const CAR_MODELS: CarModel[] = [
-  { path: `${BASE_URL}models/vehicles/chevrolet_cobalt_ltz.glb`, name: 'Chevrolet Cobalt LTZ', badge: 'UZAUTO SEDAN',    length: 4.48, forwardOffset: 0 },
-  { path: `${BASE_URL}models/vehicles/kia_k5_2025.glb`,          name: 'Kia K5 (2025)',        badge: 'BIZNES SEDAN',    length: 4.91, forwardOffset: 0 },
-  { path: `${BASE_URL}models/vehicles/gentra.glb`,               name: 'Chevrolet Gentra',     badge: 'UZAUTO SEDAN',    length: 4.48, forwardOffset: 0 },
+  // Cobalt, K5 and Gentra are modelled facing the opposite way, so they get a
+  // Math.PI heading flip; Spark already faces forward.
+  { path: `${BASE_URL}models/vehicles/chevrolet_cobalt_ltz.glb`, name: 'Chevrolet Cobalt LTZ', badge: 'UZAUTO SEDAN',    length: 4.48, forwardOffset: Math.PI },
+  { path: `${BASE_URL}models/vehicles/kia_k5_2025.glb`,          name: 'Kia K5 (2025)',        badge: 'BIZNES SEDAN',    length: 4.91, forwardOffset: Math.PI },
+  { path: `${BASE_URL}models/vehicles/gentra.glb`,               name: 'Chevrolet Gentra',     badge: 'UZAUTO SEDAN',    length: 4.48, forwardOffset: Math.PI },
   { path: `${BASE_URL}models/vehicles/spark.glb`,                name: 'Chevrolet Spark',      badge: 'SHAHAR XETCHBEK', length: 3.64, forwardOffset: 0 },
 ];
 
-const TRUCK_MODEL: CarModel = {
-  path: `${BASE_URL}models/vehicles/truck.glb`, name: 'Yuk avtomobili', badge: 'MAXSUS TRANSPORT', length: 7.5, forwardOffset: 0,
+// Public transport: a proper city bus that runs in the traffic (obeys signals,
+// stops at red like everything else).
+const BUS_MODEL: CarModel = {
+  path: `${BASE_URL}models/vehicles/bus_maz_203.glb`, name: 'MAZ 203 Avtobusi', badge: 'JAMOAT TRANSPORTI', length: 12.0, forwardOffset: Math.PI,
 };
 
 interface VehicleProps {
@@ -43,6 +48,8 @@ interface VehicleProps {
   speed: number;
   /** Chunk centre coordinate along `axis` — the car loops within centre ± 40 m. */
   axisCenter: number;
+  /** Shared per-intersection signal phase (must match this chunk's lights). */
+  signalPhase: number;
   /** Index into CAR_MODELS (ignored when isBus). */
   variant: number;
   isBus?: boolean;
@@ -56,7 +63,7 @@ interface VehicleProps {
  * invisible proxy box. Keeps each model's original PBR materials.
  */
 export const VehicleMesh: React.FC<VehicleProps> = ({
-  startPos, axis, dir, speed, axisCenter, variant, isBus = false, isActiveChunk = true,
+  startPos, axis, dir, speed, axisCenter, signalPhase, variant, isBus = false, isActiveChunk = true,
 }) => {
   const groupRef = useRef<THREE.Group>(null);
   const timeOfDay = useWorldStore((s) => s.timeOfDay);
@@ -67,7 +74,7 @@ export const VehicleMesh: React.FC<VehicleProps> = ({
   const isSunset = timeOfDay === 'sunset';
 
   const model = isBus
-    ? TRUCK_MODEL
+    ? BUS_MODEL
     : CAR_MODELS[((variant % CAR_MODELS.length) + CAR_MODELS.length) % CAR_MODELS.length];
   const { scene } = useGLTF(model.path);
 
@@ -123,19 +130,82 @@ export const VehicleMesh: React.FC<VehicleProps> = ({
     ? (dir > 0 ? 0 : Math.PI)
     : (dir > 0 ? Math.PI / 2 : -Math.PI / 2);
 
-  // Constant lane geometry (loop the coordinate within chunk centre ± 40 m).
+  // Lane geometry — the car loops within chunk centre ± 40 m, but obeys the
+  // signal with realistic acceleration/braking: it eases to a stop at the line on
+  // red/amber and pulls away smoothly on green.
   const half = CHUNK_SIZE / 2;
   const min = axisCenter - half;
   const startCoord = axis === 'z' ? startPos[2] : startPos[0];
   const perp = axis === 'z' ? startPos[0] : startPos[2];
   const y = startPos[1];
-  const base = startCoord - min;
+  const coordRef = useRef(startCoord);
+  const velRef = useRef(speed);
+  const dwellRef = useRef(0);          // remaining bus dwell time (s)
+  const busServicedRef = useRef(false); // has this bus already stopped at its stop this loop
+  const group = groupForAxis(axis);
+  const BUS_STOP_OFFSET = 24;  // metres past the centre where the bus stop sits
+  const BUS_DWELL = 2.5;       // seconds a bus waits at the stop
+  const busStopCoord = axisCenter + dir * BUS_STOP_OFFSET;
+  const STOP_LINE_DIST = 11.5; // drawn stop line, just before the crosswalk (±9)
+  const ACCEL = 3.0;           // m/s² — how briskly it pulls away on green
+  const BRAKE = 6;             // m/s² — max deceleration
+  const APPROACH_DECEL = 2.2;  // m/s² — gentle planning decel (starts braking early)
+  // Stop so the car's FRONT (not its centre) reaches the line — so long cars and
+  // the truck also halt short of the zebra.
+  const halfLen = colliderSize[2] / 2;
+  const stopLine = axisCenter - dir * (STOP_LINE_DIST + halfLen);
 
-  useFrame((state) => {
+  useFrame((state, delta) => {
     const g = groupRef.current;
     if (!g) return;
-    const t = state.clock.elapsedTime;
-    const coord = min + ((((base + speed * dir * t) % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE);
+    const dt = Math.min(delta, 0.05); // clamp long frame gaps (backgrounded tab)
+    const color = getIntersectionSignal(state.clock.elapsedTime, signalPhase)[group];
+    const braking = color === 'red' || color === 'amber';
+
+    let coord = coordRef.current;
+    const distToStop = dir * (stopLine - coord); // > 0 → stop line still ahead
+
+    // Target speed: full, unless we must brake to stop by the line.
+    let target = speed;
+    if (braking && distToStop > -0.1) {
+      const d = Math.max(0, distToStop);
+      target = Math.min(speed, Math.sqrt(2 * APPROACH_DECEL * d)); // ease down early
+      if (d < 0.5) target = 0;
+    }
+
+    // Bus service: a bus also eases to a halt at its stop (past the junction) and
+    // dwells there for a few seconds before pulling away.
+    if (isBus) {
+      const distBus = dir * (busStopCoord - coord); // > 0 → stop still ahead
+      if (dwellRef.current > 0) {
+        dwellRef.current -= dt;
+        target = 0;
+      } else if (!busServicedRef.current && distBus > 0.05 && distBus < half) {
+        target = Math.min(target, Math.sqrt(2 * APPROACH_DECEL * distBus));
+        if (distBus < 0.6) {
+          dwellRef.current = BUS_DWELL;
+          busServicedRef.current = true;
+        }
+      }
+      if (distBus < -1.5) busServicedRef.current = false; // re-arm after leaving
+    }
+
+    // Ease the actual speed toward the target (smooth accel / decel).
+    let vel = velRef.current;
+    vel = vel < target ? Math.min(target, vel + ACCEL * dt) : Math.max(target, vel - BRAKE * dt);
+
+    coord += dir * vel * dt;
+
+    // Never roll past the stop line while red/amber — pin exactly to it.
+    if (braking && distToStop >= -0.1 && dir * (stopLine - coord) < 0) {
+      coord = stopLine;
+      vel = 0;
+    }
+    velRef.current = vel;
+
+    const rel = (((coord - min) % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
+    coord = min + rel;
+    coordRef.current = coord;
     if (axis === 'z') g.position.set(perp, y, coord);
     else g.position.set(coord, y, perp);
   });

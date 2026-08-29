@@ -1,4 +1,9 @@
 {
+  "aircraft/uzbekistan_airways.glb": {
+    "hash": "6c6891207bceba20d32ef9fe78d104591ab5021ecbe3b615ee5f3be85ad4a129",
+    "size": 1758584,
+    "optimized": false
+  },
   "building_interior/interior_building.glb": {
     "hash": "cdf7ec7a0ecd3946dec297ecf5b610a420f693f9b798f3166a2beabdd0e888eb",
     "size": 94556,
@@ -9,9 +14,54 @@
     "size": 4133072,
     "optimized": false
   },
+  "fauna/seagull.glb": {
+    "hash": "e7ceb8723c35ec11928262a824b98f0972a5b20bbc907f5514320080ab7c8a38",
+    "size": 519256,
+    "optimized": false
+  },
+  "props/atm_machine.glb": {
+    "hash": "2cec0d1182dd67452cee0c29b242cb4286b2b9db86e98074dee66156fa711cc7",
+    "size": 2142980,
+    "optimized": false
+  },
+  "props/bus_stop.glb": {
+    "hash": "e7677ab59cd65f3d80d4c9af45da971b7d1e660f7ce056f934ba2ebbc4970b35",
+    "size": 916344,
+    "optimized": false
+  },
+  "props/flower_vase.glb": {
+    "hash": "db9bc4775433e2c6b9cefe120647af65918378f95792492de7bcf2d391c73b1d",
+    "size": 7253036,
+    "optimized": false
+  },
+  "props/fur_tree.glb": {
+    "hash": "cf241b80eb7aa596af427a558fab0364767f1ec0d13f1a16d92bef116b09081b",
+    "size": 3598608,
+    "optimized": false
+  },
+  "props/kiosk.glb": {
+    "hash": "2f8d126312b1fc809bc1c2d198a4d1d64f78e28daf8cec29a055d5cb8d35d7ae",
+    "size": 125224,
+    "optimized": false
+  },
+  "props/modern_bench_1.glb": {
+    "hash": "b9c7d1f0333f9d07d9434903abc1de0f13b4a79e98938af33ce04a4296c37863",
+    "size": 2804396,
+    "optimized": false
+  },
+  "props/modern_bench_2.glb": {
+    "hash": "07aa9a9ae3428d9da9b986b44705f78d5a1b7fbf8de7361eb6ce4bb201fb2094",
+    "size": 1788576,
+    "optimized": false
+  },
   "props/street_tree.glb": {
     "hash": "9bb02737d2afd63ae2e232652c2f8c4c86cebdaf0367213bee495482a90724ec",
     "size": 2653080,
+    "optimized": false
+  },
+  "uzbek/amir_temur_statue.glb": {
+    "hash": "ee00b7883486c72234572a06c717d882cc4e9a50e9bee3709a70bf061ba2d16b",
+    "size": 56349060,
     "optimized": false
   },
   "uzbek/bibi_khanym.glb": {
@@ -32,6 +82,16 @@
   "uzbek/tashkent_sirk.glb": {
     "hash": "5fca16af9f9d7d2f028598b500ab4e5dfff276165571d8b555a00e4327cc1e5f",
     "size": 1516608,
+    "optimized": false
+  },
+  "uzbek/tashkent_tv_tower.glb": {
+    "hash": "e5048d42fed92e2f8fea9d0f3864d0b6f525bbe42e880da2e9a1037911e03403",
+    "size": 3053344,
+    "optimized": false
+  },
+  "vehicles/bus_maz_203.glb": {
+    "hash": "27d53b576432d67d3d02b4d68ae209ef50cca63e7eca48bf6805e0191202b44d",
+    "size": 17257096,
     "optimized": false
   },
   "vehicles/chevrolet_cobalt_ltz.glb": {

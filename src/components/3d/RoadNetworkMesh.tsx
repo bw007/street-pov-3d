@@ -16,9 +16,13 @@ interface RoadNetworkMeshProps {
   // open ground plane so the monument (centered in the chunk) doesn't have a
   // road slab cutting through its courtyard.
   plazaOnly?: boolean;
+  // When the road is a major avenue (two lanes each way), draw dashed lane
+  // dividers between the two lanes on each side.
+  nsMajor?: boolean;
+  ewMajor?: boolean;
 }
 
-export const RoadNetworkMesh: React.FC<RoadNetworkMeshProps> = ({ chunkX, chunkZ, excludeQuadrants = [], plazaOnly = false }) => {
+export const RoadNetworkMesh: React.FC<RoadNetworkMeshProps> = ({ chunkX, chunkZ, excludeQuadrants = [], plazaOnly = false, nsMajor = false, ewMajor = false }) => {
   const worldX = chunkX * CHUNK_SIZE;
   const worldZ = chunkZ * CHUNK_SIZE;
 
@@ -70,6 +74,26 @@ export const RoadNetworkMesh: React.FC<RoadNetworkMeshProps> = ({ chunkX, chunkZ
         <meshStandardMaterial color="#eab308" roughness={0.5} />
       </mesh>
 
+      {/* 3b. Dashed lane dividers on major (2-lane-each-way) avenues, between the
+          inner (1.8 m) and outer (5.2 m) lanes at ±3.5 m. Skipped near the
+          intersection box. */}
+      {nsMajor && [-3.5, 3.5].flatMap((lx) =>
+        [-34, -26, -18, 18, 26, 34].map((lz) => (
+          <mesh key={`nsd-${lx}-${lz}`} position={[lx, 0.021, lz]} rotation={[-Math.PI / 2, 0, 0]}>
+            <planeGeometry args={[0.16, 2.6]} />
+            <meshStandardMaterial color="#e2e8f0" roughness={0.5} />
+          </mesh>
+        ))
+      )}
+      {ewMajor && [-3.5, 3.5].flatMap((lz) =>
+        [-34, -26, -18, 18, 26, 34].map((lx) => (
+          <mesh key={`ewd-${lz}-${lx}`} position={[lx, 0.021, lz]} rotation={[-Math.PI / 2, 0, 0]}>
+            <planeGeometry args={[2.6, 0.16]} />
+            <meshStandardMaterial color="#e2e8f0" roughness={0.5} />
+          </mesh>
+        ))
+      )}
+
       {/* 4. Zebra Crosswalks at 4 Road Intersection approaches */}
       {[-roadWidth / 2 - 2, roadWidth / 2 + 2].map((offsetZ, i) => (
         <group key={`crosswalk-z-${i}`} position={[0, 0.025, offsetZ]}>
@@ -92,6 +116,30 @@ export const RoadNetworkMesh: React.FC<RoadNetworkMeshProps> = ({ chunkX, chunkZ
           ))}
         </group>
       ))}
+
+      {/* 4b. Stop lines — solid white bars just BEFORE each zebra crossing, on
+          the entering (right-hand) lane of each approach, so cars halt short of
+          the crosswalk. Distance 11.5 m matches VehicleMesh STOP_LINE_DIST. */}
+      {/* South approach: northbound enters in the −X lane */}
+      <mesh position={[-3.5, 0.022, -11.5]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[7, 0.5]} />
+        <meshStandardMaterial color="#e2e8f0" roughness={0.5} />
+      </mesh>
+      {/* North approach: southbound enters in the +X lane */}
+      <mesh position={[3.5, 0.022, 11.5]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[7, 0.5]} />
+        <meshStandardMaterial color="#e2e8f0" roughness={0.5} />
+      </mesh>
+      {/* East approach: westbound enters in the −Z lane */}
+      <mesh position={[11.5, 0.022, -3.5]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[0.5, 7]} />
+        <meshStandardMaterial color="#e2e8f0" roughness={0.5} />
+      </mesh>
+      {/* West approach: eastbound enters in the +Z lane */}
+      <mesh position={[-11.5, 0.022, 3.5]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[0.5, 7]} />
+        <meshStandardMaterial color="#e2e8f0" roughness={0.5} />
+      </mesh>
 
       {/* 5. Elevated Sidewalk Curbs (15cm height with physics) */}
       {[0, 1, 2, 3].filter((idx) => !excludeQuadrants.includes(idx)).map((idx) => {

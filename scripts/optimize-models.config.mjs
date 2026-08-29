@@ -81,6 +81,18 @@ const config = {
     'vehicles/kia_k5_2025.glb': { texture: { maxSize: 1024 } },
     'vehicles/gentra.glb': { texture: { maxSize: 1024 } },
     'vehicles/spark.glb': { texture: { maxSize: 1024 } },
+    'vehicles/bus_maz_203.glb': { texture: { maxSize: 1024 } },
+    // Amir Temur statue is a large centrepiece — cap its (very large) textures.
+    'uzbek/amir_temur_statue.glb': { texture: { maxSize: 2048 } },
+    // Uzbekistan Airways plane: a Sketchfab import with ~378 sub-meshes / 833
+    // nodes. It flies decoratively (no collider / POI / anchor nodes, no
+    // animation), several copies at once, so merge it hard — flatten + join
+    // collapse it to ~one mesh per material (~16 draw calls instead of 378).
+    // Dropping node names is safe precisely because nothing here depends on them.
+    'aircraft/uzbekistan_airways.glb': {
+      texture: { maxSize: 1024 },
+      advanced: { dedup: true, resample: true, weld: true, flatten: true, join: true, prune: true },
+    },
   },
 };
 

@@ -9,6 +9,8 @@ import { InspectableObject } from '../../types';
 interface StreetTreeProps {
   position: [number, number, number];
   inspectData: InspectableObject;
+  /** Override the fitted height (default TARGET_HEIGHT) — e.g. bigger plaza trees. */
+  targetHeight?: number;
   // When false, skip this tree's own RigidBody (Rapier has to walk real mesh
   // geometry to derive its cuboid colliders, which adds up once a chunk has
   // a couple dozen trees mounting at once — see the stutter this caused in
@@ -28,7 +30,12 @@ const MODEL_PATH = `${BASE_URL}models/props/street_tree.glb`;
 // correctly sized regardless of the source file's native units.
 const TARGET_HEIGHT = 5.5;
 
-export const StreetTree: React.FC<StreetTreeProps> = ({ position, inspectData, physics = true }) => {
+export const StreetTree: React.FC<StreetTreeProps> = ({
+  position,
+  inspectData,
+  physics = true,
+  targetHeight = TARGET_HEIGHT,
+}) => {
   const setInspectedObject = useWorldStore((s) => s.setInspectedObject);
   const { scene } = useGLTF(MODEL_PATH);
 
@@ -52,7 +59,7 @@ export const StreetTree: React.FC<StreetTreeProps> = ({ position, inspectData, p
     bbox.getCenter(center);
 
     const rawHeight = size.y > 0.001 ? size.y : 1;
-    const autoScale = TARGET_HEIGHT / rawHeight;
+    const autoScale = targetHeight / rawHeight;
 
     const group = new THREE.Group();
     cloned.position.set(
@@ -65,9 +72,9 @@ export const StreetTree: React.FC<StreetTreeProps> = ({ position, inspectData, p
 
     return {
       modelGroup: group,
-      proxySize: [size.x * autoScale, TARGET_HEIGHT, size.z * autoScale] as [number, number, number],
+      proxySize: [size.x * autoScale, targetHeight, size.z * autoScale] as [number, number, number],
     };
-  }, [scene]);
+  }, [scene, targetHeight]);
 
   const handleInspect = (e: { stopPropagation: () => void }) => {
     e.stopPropagation();

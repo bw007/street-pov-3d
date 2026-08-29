@@ -5,15 +5,22 @@ import { PropsMesh } from './PropsMesh';
 import { POIMarker } from './POIMarker';
 import { VehicleMesh } from './VehicleMesh';
 import { ImportedTokyoBuilding } from './ImportedTokyoBuilding';
-import { UzbekBibiKhanym } from './UzbekBibiKhanym';
+import { AmirTemurStatue } from './AmirTemurStatue';
 import { UzbekOliyMajlis } from './UzbekOliyMajlis';
 import { TashkentCircus } from './TashkentCircus';
 import { TashkentCityNest } from './TashkentCityNest';
+import { TashkentTVTower } from './TashkentTVTower';
+import { PropModel, PROP_URLS, recolorKiosk, recolorAtm } from './PropModel';
+import { InspectableObject } from '../../types';
 import { ChevroletOnix } from './ChevroletOnix';
 import { SafeModel } from './ModelErrorBoundary';
-import { IntersectionLabel } from './IntersectionLabel';
+import { BusStop } from './BusStop';
+import { PlazaPark } from './PlazaPark';
+import { TrafficLight } from './TrafficLight';
+import { HighwaySign } from './HighwaySign';
 import { generateChunkBuildings } from '../../data/mockBuildings';
 import { getStreetByChunk, CHUNK_SIZE } from '../../data/streetsData';
+import { getLandmarkByChunk } from '../../data/landmarks';
 import { useWorldStore } from '../../stores/useWorldStore';
 
 interface StreetChunkProps {
@@ -32,6 +39,33 @@ const HOME_SHOWCASE_CAR = {
   rotationY: Math.PI, // radians — car heading
 };
 
+// Eight human-height flower vases ringed around the Amir Temur statue at the
+// spawn plaza, evenly spaced. Offsets are relative to the chunk centre.
+const VASE_RING: [number, number][] = Array.from({ length: 8 }, (_, i) => {
+  const a = (i / 8) * Math.PI * 2;
+  return [Math.cos(a) * 15, Math.sin(a) * 15];
+});
+
+// Standalone, clickable ATMs on the sidewalks (own object, not tied to bus stops).
+const ATM_INSPECT: InspectableObject = {
+  id: 'bankomat',
+  title: 'Bankomat (ATM)',
+  category: 'infrastructure',
+  badge: 'XIZMAT',
+  description: "24/7 ishlaydigan bankomat — naqd pul yechish va to'lovlar uchun.",
+  details: [
+    { label: 'Turi', value: 'Bankomat' },
+    { label: 'Ish vaqti', value: '24/7' },
+  ],
+};
+
+// Sidewalk corners for the ATMs — SW and SE, away from the NE kiosk and the bus
+// stops. [offsetX, offsetZ, rotationY]; offsets relative to the chunk centre.
+const ATM_SPOTS: [number, number, number][] = [
+  [-11, -11, Math.PI / 4],
+  [11, -11, -Math.PI / 4],
+];
+
 export const StreetChunk: React.FC<StreetChunkProps> = ({ chunkX, chunkZ }) => {
   const worldX = chunkX * CHUNK_SIZE;
   const worldZ = chunkZ * CHUNK_SIZE;
@@ -42,39 +76,62 @@ export const StreetChunk: React.FC<StreetChunkProps> = ({ chunkX, chunkZ }) => {
   const buildings = useMemo(() => generateChunkBuildings(chunkX, chunkZ), [chunkX, chunkZ]);
   const street = useMemo(() => getStreetByChunk(chunkX, chunkZ), [chunkX, chunkZ]);
 
-  // Each showcase monument previously shared the center chunk with the other
-  // two plus a regular tower and standard street furniture — all crammed
-  // into the same 80x80m block. That crowding (sidewalk curbs, lamps, a
-  // tower right next to a scanned monument several times its footprint) is
-  // what made the monuments look like they didn't belong on the ground.
-  // Each one now gets an entire dedicated chunk to itself as an open plaza;
-  // the other two are pushed out to the immediate east/west neighbor chunks
-  // (both already inside the default 3x3 streamed radius around spawn).
-  // Showcase landmarks each own a dedicated plaza chunk. Central east–west
-  // avenue (z = 0): Tokyo (−1:0), Bibi Khanym / spawn (0:0), Oliy Majlis (1:0),
-  // Tashkent Circus (2:0). One block north: Tashkent City NEST One at (0:1).
-  const monumentType: 'bibi' | 'oliyMajlis' | 'tokyo' | 'circus' | 'nest' | null =
-    chunkX === 0 && chunkZ === 0 ? 'bibi' :
-    chunkX === 1 && chunkZ === 0 ? 'oliyMajlis' :
-    chunkX === -1 && chunkZ === 0 ? 'tokyo' :
-    chunkX === 2 && chunkZ === 0 ? 'circus' :
-    chunkX === 0 && chunkZ === 1 ? 'nest' :
-    null;
+  // Showcase landmarks each own a dedicated plaza chunk (the chunk clears its
+  // buildings / through-traffic / furniture below, so the monument sits on open
+  // ground). Placement now lives in a single data-driven registry — see
+  // src/data/landmarks.ts — which also spaces the duplicated NEST One and
+  // Littlest Tokyo models >=3 chunks apart, so the +-1 chunk streamer never has
+  // two heavy landmark meshes in view at once (keeps draw calls / physics sane).
+  const monumentType = getLandmarkByChunk(chunkX, chunkZ);
   const isMonumentChunk = monumentType !== null;
 
   // Clear every quadrant's sidewalk curb/lawn and street furniture in a
   // monument chunk, leaving flat open ground for the plaza.
   const clearedQuadrants = isMonumentChunk ? [0, 1, 2, 3] : [];
 
-  // Every intersection shows its address "X : Z" (identical to chunkX / chunkZ in
-  // code) on a floating, camera-facing sign — for navigation and so any spot can
-  // be referenced exactly (spawn is "0 : 0", the circus is "2 : 0"). To change
-  // the numbering scheme, edit this one line. On monument plaza chunks the sign
-  // shifts to a corner so it doesn't sit inside the model.
-  const intersectionLabel = `${chunkX} : ${chunkZ}`;
-  const labelPos: [number, number, number] = isMonumentChunk
-    ? [worldX + 30, 4, worldZ - 30]
-    : [worldX, 5, worldZ];
+  // "Major" arterial avenues get two lanes each way (and more traffic); they run
+  // in continuous lines every 3rd grid column/row. nsMajor = the N–S road here is
+  // an avenue, ewMajor = the E–W road is.
+  const nsMajor = chunkX % 3 === 0;
+  const ewMajor = chunkZ % 3 === 0;
+
+  // One shared signal phase per intersection — the four traffic lights AND the
+  // cars here all read it (via getIntersectionSignal), so the lights and the
+  // traffic stay in sync (cars stop on red, go on green). The big overhead guide
+  // sign keeps the grid code "X : Z" so any spot can still be referenced exactly.
+  const signalPhase = Math.abs(chunkX * 5 + chunkZ * 11) % 13;
+
+  const plazaShift = isMonumentChunk ? 22 : 0;
+
+  // Right-hand traffic: each approach's signal + banner sit on the driver's RIGHT
+  // curb, FACING the oncoming car (not across the junction). Cars stop ~9 m before
+  // the centre; the signal is at the corner ~7 m out, the banner further out ~16 m.
+  const sc = 7 + plazaShift; // signal corner offset
+  const signals: { pos: [number, number, number]; rotationY: number; group: 'ns' | 'ew' }[] = [
+    { pos: [worldX - sc, 0, worldZ - sc], rotationY: Math.PI / 2, group: 'ns' },  // northbound (−X lane), faces −Z
+    { pos: [worldX + sc, 0, worldZ + sc], rotationY: -Math.PI / 2, group: 'ns' }, // southbound (+X lane), faces +Z
+    { pos: [worldX - sc, 0, worldZ + sc], rotationY: Math.PI, group: 'ew' },      // eastbound (+Z lane), faces −X
+    { pos: [worldX + sc, 0, worldZ - sc], rotationY: 0, group: 'ew' },            // westbound (−Z lane), faces +X
+  ];
+
+  // Banners: pole on the driver's-right curb, arm reaching over THAT lane, panel
+  // (flipped) facing the oncoming car. Grid code on the northbound one.
+  const bAlong = 16 + plazaShift; // distance along the approach
+  const bCurb = 7;                // driver's-right curb offset
+  const banners: { pos: [number, number, number]; rotationY: number; flip: boolean; code?: string }[] = [
+    { pos: [worldX - bCurb, 0, worldZ - bAlong], rotationY: 0, flip: true, code: `${chunkX} : ${chunkZ}` }, // northbound, faces −Z
+    { pos: [worldX + bCurb, 0, worldZ + bAlong], rotationY: Math.PI, flip: true },                          // southbound, faces +Z
+    { pos: [worldX - bAlong, 0, worldZ + bCurb], rotationY: Math.PI / 2, flip: true },                      // eastbound, faces −X
+    { pos: [worldX + bAlong, 0, worldZ - bCurb], rotationY: -Math.PI / 2, flip: true },                     // westbound, faces +X
+  ];
+
+  // Bus stop shelters on the curb of each bus route, at the coordinate the bus
+  // pulls up to (24 m past the centre in the travel direction — see VehicleMesh
+  // BUS_STOP_OFFSET). Northbound (+Z) stop on the −X curb, eastbound (+X) on +Z.
+  const busStops: { pos: [number, number, number]; rotationY: number }[] = isMonumentChunk ? [] : [
+    { pos: [worldX - 8, 0, worldZ + 24], rotationY: 0 },           // northbound stop (−X curb), parallel to N-S road
+    { pos: [worldX + 24, 0, worldZ + 8], rotationY: Math.PI / 2 }, // eastbound stop (+Z curb), parallel to E-W road
+  ];
 
   const vehicles = useMemo(() => {
     const vList: {
@@ -93,15 +150,29 @@ export const StreetChunk: React.FC<StreetChunkProps> = ({ chunkX, chunkZ }) => {
 
     const seed = Math.abs(chunkX * 9301 + chunkZ * 49297);
 
-    // Two north–south lanes and two east–west lanes. Each car drives along its
-    // lane and loops within the chunk; `variant` spreads the four car models
-    // across every street so no two lanes look identical.
-    const lanes: { pos: [number, number, number]; axis: 'x' | 'z'; dir: 1 | -1; speed: number }[] = [
-      { pos: [worldX + 3.2, 0, worldZ - 16], axis: 'z', dir: 1, speed: 5.5 },
-      { pos: [worldX - 3.2, 0, worldZ + 20], axis: 'z', dir: -1, speed: 4.5 },
-      { pos: [worldX + 22, 0, worldZ + 3.2], axis: 'x', dir: 1, speed: 6.0 },
-      { pos: [worldX - 20, 0, worldZ - 3.2], axis: 'x', dir: -1, speed: 5.0 },
-    ];
+    // Right-hand traffic (Uzbekistan): a car keeps to the side `d × up` of its
+    // travel direction. +Z drives in the −X lane, −Z in +X, +X in +Z, −X in −Z.
+    // Major avenues get TWO lanes each way (inner 1.8 m, outer 5.2 m) → more cars;
+    // regular streets keep one lane each way at 3.2 m.
+    const lanes: { pos: [number, number, number]; axis: 'x' | 'z'; dir: 1 | -1; speed: number }[] = [];
+
+    const nsOffsets = nsMajor ? [1.8, 5.2] : [3.2];
+    nsOffsets.forEach((off, li) => {
+      lanes.push({ pos: [worldX - off, 0, worldZ - 16 - li * 11], axis: 'z', dir: 1, speed: 6 - li * 0.8 });
+      lanes.push({ pos: [worldX + off, 0, worldZ + 22 + li * 11], axis: 'z', dir: -1, speed: 5.2 - li * 0.8 });
+    });
+
+    const ewOffsets = ewMajor ? [1.8, 5.2] : [3.2];
+    ewOffsets.forEach((off, li) => {
+      lanes.push({ pos: [worldX + 22 + li * 11, 0, worldZ + off], axis: 'x', dir: 1, speed: 6 - li * 0.8 });
+      lanes.push({ pos: [worldX - 20 - li * 11, 0, worldZ - off], axis: 'x', dir: -1, speed: 5.2 - li * 0.8 });
+    });
+
+    // One bus per road, in the outer (+direction) curb lane — a regular service
+    // that stops at the shelters below.
+    const nsCount = nsOffsets.length * 2;
+    const nsBusIdx = (nsOffsets.length - 1) * 2;      // outer +Z (northbound) lane
+    const ewBusIdx = nsCount + (ewOffsets.length - 1) * 2; // outer +X (eastbound) lane
 
     lanes.forEach((lane, i) => {
       vList.push({
@@ -111,25 +182,30 @@ export const StreetChunk: React.FC<StreetChunkProps> = ({ chunkX, chunkZ }) => {
         speed: lane.speed,
         axisCenter: lane.axis === 'z' ? worldZ : worldX,
         variant: (seed + i) % 4,
-        isBus: (seed + i) % 7 === 0, // occasional truck for variety
+        isBus: i === nsBusIdx || i === ewBusIdx,
       });
     });
 
     return vList;
-  }, [chunkX, chunkZ, worldX, worldZ, isMonumentChunk]);
+  }, [chunkX, chunkZ, worldX, worldZ, isMonumentChunk, nsMajor, ewMajor]);
 
   return (
     <group key={`chunk-${chunkX}-${chunkZ}`}>
       {/* 1. Road Network, Sidewalks, Crosswalks */}
-      <RoadNetworkMesh chunkX={chunkX} chunkZ={chunkZ} excludeQuadrants={clearedQuadrants} plazaOnly={isMonumentChunk} />
+      <RoadNetworkMesh chunkX={chunkX} chunkZ={chunkZ} excludeQuadrants={clearedQuadrants} plazaOnly={isMonumentChunk} nsMajor={nsMajor} ewMajor={ewMajor} />
+
+      {/* 1b. Landscaped square/park around the Amir Temur & Tokyo monuments */}
+      {(monumentType === 'amirTemur' || monumentType === 'tokyo') && (
+        <PlazaPark center={[worldX, 0, worldZ]} />
+      )}
 
       {/* 2. Monumental Uzbek & International 3D Architectural Models — each
           gets its own dedicated plaza chunk, centered so its footprint stays
           well inside the chunk instead of spilling into a neighboring chunk
           that still has a regular building in it. */}
-      {monumentType === 'bibi' && (
-        <SafeModel name="UzbekBibiKhanym">
-          <UzbekBibiKhanym position={[worldX, 0, worldZ]} rotationY={0} />
+      {monumentType === 'amirTemur' && (
+        <SafeModel name="AmirTemurStatue">
+          <AmirTemurStatue position={[worldX, 0, worldZ]} rotationY={0} />
         </SafeModel>
       )}
       {monumentType === 'oliyMajlis' && (
@@ -152,6 +228,19 @@ export const StreetChunk: React.FC<StreetChunkProps> = ({ chunkX, chunkZ }) => {
           <TashkentCityNest position={[worldX, 0, worldZ]} rotationY={0} />
         </SafeModel>
       )}
+      {monumentType === 'tvTower' && (
+        <SafeModel name="TashkentTVTower">
+          <TashkentTVTower position={[worldX, 0, worldZ]} rotationY={0} />
+        </SafeModel>
+      )}
+
+      {/* Eight human-height flower vases ringed around the Amir Temur statue. */}
+      {monumentType === 'amirTemur' &&
+        VASE_RING.map((v, i) => (
+          <SafeModel key={`vase-${i}`} name="FlowerVase">
+            <PropModel url={PROP_URLS.vase} targetHeight={1.75} position={[worldX + v[0], 0, worldZ + v[1]]} />
+          </SafeModel>
+        ))}
 
       {/* "Home" showcase — Chevrolet Onix parked just south of the spawn plaza
           (rendered with chunk 0,0), the first real 3D car the player sees when
@@ -171,6 +260,19 @@ export const StreetChunk: React.FC<StreetChunkProps> = ({ chunkX, chunkZ }) => {
         ))
       )}
 
+      {/* Kiosk on a corner of every ordinary street intersection (chorraha). */}
+      {!isMonumentChunk && (
+        <SafeModel name="Kiosk">
+          <PropModel
+            url={PROP_URLS.kiosk}
+            targetHeight={3}
+            position={[worldX + 11, 0, worldZ + 11]}
+            rotationY={-Math.PI * 0.75}
+            onMaterial={recolorKiosk}
+          />
+        </SafeModel>
+      )}
+
       {/* 3. Street Props: Lamps, Bus Stops, Trees, Benches */}
       <PropsMesh chunkX={chunkX} chunkZ={chunkZ} streetName={street?.name} isActiveChunk={isActiveChunk} excludeQuadrants={clearedQuadrants} />
 
@@ -185,6 +287,7 @@ export const StreetChunk: React.FC<StreetChunkProps> = ({ chunkX, chunkZ }) => {
             dir={v.dir}
             speed={v.speed}
             axisCenter={v.axisCenter}
+            signalPhase={signalPhase}
             variant={v.variant}
             isBus={v.isBus}
             isActiveChunk={isActiveChunk}
@@ -197,8 +300,50 @@ export const StreetChunk: React.FC<StreetChunkProps> = ({ chunkX, chunkZ }) => {
         <POIMarker key={poi.id} poi={poi} />
       ))}
 
-      {/* 6. Intersection number sign ("X : Z") */}
-      <IntersectionLabel position={labelPos} label={intersectionLabel} />
+      {/* 6. Four synced signals + four overhead highway guide banners */}
+      {signals.map((s, i) => (
+        <TrafficLight
+          key={`tl-${i}`}
+          position={s.pos}
+          rotationY={s.rotationY}
+          group={s.group}
+          phase={signalPhase}
+          isActiveChunk={isActiveChunk}
+        />
+      ))}
+      {banners.map((b, i) => (
+        <HighwaySign
+          key={`hs-${i}`}
+          position={b.pos}
+          rotationY={b.rotationY}
+          flip={b.flip}
+          streetName={street?.name}
+          code={b.code}
+        />
+      ))}
+
+      {/* 7. Bus stop shelters — buses pull up and dwell here */}
+      {busStops.map((bs, i) => (
+        <SafeModel key={`bs-${i}`} name="BusStop">
+          <BusStop position={bs.pos} rotationY={bs.rotationY} />
+        </SafeModel>
+      ))}
+
+      {/* 7b. Standalone, clickable ATMs on the sidewalk corners — their own named
+          object (crosshair/click opens the inspect modal), not tied to bus stops. */}
+      {!isMonumentChunk &&
+        ATM_SPOTS.map((s, i) => (
+          <SafeModel key={`atm-${i}`} name="ATM">
+            <PropModel
+              url={PROP_URLS.atm}
+              targetHeight={1.8}
+              position={[worldX + s[0], 0, worldZ + s[1]]}
+              rotationY={s[2]}
+              onMaterial={recolorAtm}
+              inspect={ATM_INSPECT}
+            />
+          </SafeModel>
+        ))}
     </group>
   );
 };

@@ -29,8 +29,8 @@ interface PropModelProps {
   collide?: boolean;
   /** Optional per-material tweak (recolour etc.), applied once at clone time. */
   onMaterial?: (m: THREE.MeshStandardMaterial) => void;
-  /** Rotate about X before fitting (e.g. -PI/2 to stand a Z-up model upright). */
-  preRotateX?: number;
+  /** Auto-stand a lying-down model: rotate its longest axis up to Y before fitting. */
+  autoStand?: boolean;
   /** If set, the prop becomes clickable and shows this in the inspect modal. */
   inspect?: InspectableObject;
 }
@@ -75,13 +75,30 @@ export const recolorAtm = (m: THREE.MeshStandardMaterial) => {
   m.emissiveIntensity = 0.26;
 };
 
+/** Fir tree: the GLB uses a Maya spec-gloss material that three r170 can't
+ *  render (so it shows grey) — give it real colours: green foliage, brown wood. */
+export const recolorFir = (m: THREE.MeshStandardMaterial) => {
+  if (m.name === 'Branch') {
+    m.color.set('#5a3d29'); // brown trunk / branches
+    m.metalness = 0;
+    m.roughness = 0.9;
+  } else {
+    m.color.set('#2f6b32'); // green foliage
+    m.metalness = 0;
+    m.roughness = 0.9;
+    m.emissive.set('#1c3f1e');
+    m.emissiveIntensity = 0.25; // slight self-lift so the green reads (no sun)
+  }
+};
+
 /**
  * Generic ambient street/plaza prop loaded from a GLB and normalised to a target
  * HEIGHT (so several different models sit at a consistent, human-relative scale).
  * Performance-safe like the other model components: geometry/materials shared via
  * clone(), no shadows, raycast disabled on the visual mesh, metalness clamped,
- * and only a cheap cuboid collider — never a hull. `preRotateX` stands up a Z-up
- * model; `inspect` makes it a named, clickable object. Wrap usages in <SafeModel>.
+ * and only a cheap cuboid collider — never a hull. `autoStand` stands up a
+ * lying-down model; `inspect` makes it a named, clickable object. Wrap usages in
+ * <SafeModel>.
  */
 export const PropModel: React.FC<PropModelProps> = ({
   url,
@@ -90,7 +107,7 @@ export const PropModel: React.FC<PropModelProps> = ({
   rotationY = 0,
   collide = true,
   onMaterial,
-  preRotateX = 0,
+  autoStand = false,
   inspect,
 }) => {
   const setInspectedObject = useWorldStore((s) => s.setInspectedObject);
@@ -98,7 +115,6 @@ export const PropModel: React.FC<PropModelProps> = ({
 
   const { model, footprint } = useMemo(() => {
     const cloned = scene.clone(true);
-    if (preRotateX) cloned.rotation.x = preRotateX;
 
     const tune = (m: THREE.Material) => {
       const mm = m as THREE.MeshStandardMaterial;
@@ -117,7 +133,16 @@ export const PropModel: React.FC<PropModelProps> = ({
       }
     });
 
-    // bbox reflects preRotateX (uniform scale below commutes with the rotation).
+    // Auto-stand: if the model loads lying down (a horizontal axis is longest),
+    // rotate its longest axis up to Y. Robust regardless of the source up-axis.
+    if (autoStand) {
+      const s0 = new THREE.Vector3();
+      new THREE.Box3().setFromObject(cloned).getSize(s0);
+      if (s0.z > s0.y && s0.z >= s0.x) cloned.rotation.x = -Math.PI / 2;
+      else if (s0.x > s0.y && s0.x > s0.z) cloned.rotation.z = Math.PI / 2;
+    }
+
+    // bbox reflects any autoStand rotation (uniform scale below commutes with it).
     const bbox = new THREE.Box3().setFromObject(cloned);
     const size = new THREE.Vector3();
     bbox.getSize(size);
@@ -137,7 +162,7 @@ export const PropModel: React.FC<PropModelProps> = ({
     const footX = Math.max(safe(size.x * scale), 0.3);
     const footZ = Math.max(safe(size.z * scale), 0.3);
     return { model: group, footprint: [footX, targetHeight, footZ] as [number, number, number] };
-  }, [scene, targetHeight, onMaterial, preRotateX]);
+  }, [scene, targetHeight, onMaterial, autoStand]);
 
   const handleInspect = (e: { stopPropagation: () => void }) => {
     e.stopPropagation();

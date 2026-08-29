@@ -5,6 +5,7 @@ import { soundManager } from '../../audio/SoundManager';
 import { CHUNK_SIZE } from '../../data/streetsData';
 import { InspectableObject } from '../../types';
 import { StreetTree } from './StreetTree';
+import { StreetBench, BENCH_MODELS } from './StreetBench';
 
 interface PropsMeshProps {
   chunkX: number;
@@ -34,21 +35,6 @@ export const PropsMesh: React.FC<PropsMeshProps> = ({ chunkX, chunkZ, isActiveCh
   const isNight = timeOfDay === 'night';
   const isSunset = timeOfDay === 'sunset';
 
-  const busStopData: InspectableObject = useMemo(() => ({
-    id: `busstop_${chunkX}_${chunkZ}`,
-    title: "Zamonaviy Aqlli Avtobus Bekati",
-    category: 'infrastructure',
-    badge: "BEKAT",
-    description: `${currentStreet?.name || 'Markaziy ko\'cha'} bo'yidagi zamonaviy shisha bekat. Kutish uchun qulay shinam o'rindiqlar va axborot monitori mavjud.`,
-    streetName: currentStreet?.name,
-    details: [
-      { label: "Keluvchi avtobuslar", value: "№ 24, 38, 51, 93" },
-      { label: "Oraliq vaqt", value: "7-10 daqiqa" },
-      { label: "Wi-Fi & Zaryadlash", value: "Mavjud (Free Wi-Fi)" },
-      { label: "Xavfsizlik", value: "24/7 Video kuzatuv" },
-    ],
-  }), [chunkX, chunkZ, currentStreet?.name]);
-
   const lampData: InspectableObject = useMemo(() => ({
     id: `lamp_${chunkX}_${chunkZ}`,
     title: "LED Ko'cha Yoritish Chirog'i",
@@ -75,6 +61,20 @@ export const PropsMesh: React.FC<PropsMeshProps> = ({ chunkX, chunkZ, isActiveCh
       { label: "Balandligi", value: "5.5 metr" },
       { label: "Sug'orish tizimi", value: "Avtomat tomchilatib sug'orish" },
       { label: "Ekologik foydasi", value: "Kuniga 120kg kislorod" },
+    ],
+  }), [chunkX, chunkZ, currentStreet?.name]);
+
+  const benchData: InspectableObject = useMemo(() => ({
+    id: `bench_${chunkX}_${chunkZ}`,
+    title: "Zamonaviy Ko'cha O'rindig'i",
+    category: 'infrastructure',
+    badge: "SHAHAR JIHOZI",
+    description: `${currentStreet?.name || "Markaziy ko'cha"} bo'yida piyodalar dam olishi uchun zamonaviy dizayndagi o'rindiq.`,
+    streetName: currentStreet?.name,
+    details: [
+      { label: "Turi", value: "Ko'cha o'rindig'i (modern)" },
+      { label: "Material", value: "Metall karkas + kompozit" },
+      { label: "Joylashuvi", value: "Piyodalar yo'lkasi bo'yida" },
     ],
   }), [chunkX, chunkZ, currentStreet?.name]);
 
@@ -107,6 +107,32 @@ export const PropsMesh: React.FC<PropsMeshProps> = ({ chunkX, chunkZ, isActiveCh
     });
   });
 
+  // Benches along both sidewalks, sitting parallel to the adjacent road.
+  // `variant` mixes the two designs (0 = larger/more frequent, 1 = smaller):
+  // every third bench is the small one, so ~2/3 are the big design.
+  const BENCH_OFFSET = 9;
+  const BENCH_ALONG = [-22, 22];
+  const benches: { pos: [number, number, number]; rotationY: number; variant: number }[] = [];
+  let benchIdx = 0;
+  ([-1, 1] as const).forEach((s) => {
+    BENCH_ALONG.forEach((along) => {
+      // North–south sidewalk (x = ±offset): bench length runs along Z.
+      benches.push({
+        pos: [worldX + s * BENCH_OFFSET, 0, worldZ + along],
+        rotationY: Math.PI / 2,
+        variant: (benchIdx + chunkX + chunkZ) % 3 === 2 ? 1 : 0,
+      });
+      benchIdx++;
+      // East–west sidewalk (z = ±offset): bench length runs along X.
+      benches.push({
+        pos: [worldX + along, 0, worldZ + s * BENCH_OFFSET],
+        rotationY: 0,
+        variant: (benchIdx + chunkX + chunkZ) % 3 === 2 ? 1 : 0,
+      });
+      benchIdx++;
+    });
+  });
+
   // Stainless steel bollards along curbs
   const bollardPositions: [number, number, number][] = [
     [worldX - 7.4, 0, worldZ - 12],
@@ -119,14 +145,22 @@ export const PropsMesh: React.FC<PropsMeshProps> = ({ chunkX, chunkZ, isActiveCh
     [worldX + 7.4, 0, worldZ + 12],
   ];
 
-  const busStopPos: [number, number, number] = [worldX - 10, 0.16, worldZ - 10];
   const hydrantPos: [number, number, number] = [worldX + 8.2, 0.16, worldZ - 14];
   const binPos: [number, number, number] = [worldX - 8.2, 0.16, worldZ + 14];
 
+  // The two bus-stop shelters (see StreetChunk `busStops`). Keep benches clear of
+  // them so a shelter never lands on top of a bench.
+  const busStopSpots: [number, number][] = [
+    [worldX - 8, worldZ + 24],
+    [worldX + 24, worldZ + 8],
+  ];
+  const nearBusStop = (p: [number, number, number]) =>
+    busStopSpots.some(([sx, sz]) => Math.hypot(p[0] - sx, p[2] - sz) < 5);
+
   const visibleLampPositions = lampPositions.filter((p) => !isExcluded(p));
   const visibleTreePositions = treePositions.filter((p) => !isExcluded(p));
+  const visibleBenches = benches.filter((b) => !isExcluded(b.pos) && !nearBusStop(b.pos));
   const visibleBollardPositions = bollardPositions.filter((p) => !isExcluded(p));
-  const showBusStop = !isExcluded(busStopPos);
   const showHydrant = !isExcluded(hydrantPos);
   const showBin = !isExcluded(binPos);
 
@@ -134,11 +168,6 @@ export const PropsMesh: React.FC<PropsMeshProps> = ({ chunkX, chunkZ, isActiveCh
     e.stopPropagation();
     soundManager.playClick();
     setInspectedObject(lampData);
-  };
-  const handleBusStopClick = (e: { stopPropagation: () => void }) => {
-    e.stopPropagation();
-    soundManager.playClick();
-    setInspectedObject(busStopData);
   };
 
   return (
@@ -178,27 +207,14 @@ export const PropsMesh: React.FC<PropsMeshProps> = ({ chunkX, chunkZ, isActiveCh
           </mesh>
         ))}
 
-        {/* Bus stop shelter panels */}
-        {showBusStop && (
-          <>
-            <mesh position={[busStopPos[0], busStopPos[1] + 1.4, busStopPos[2] - 0.9]} userData={{ inspectData: busStopData }} onClick={handleBusStopClick}>
-              <boxGeometry args={[4.2, 2.6, 0.08]} />
-              <meshStandardMaterial color="#38bdf8" roughness={0.1} transparent opacity={0.5} />
-            </mesh>
-            <mesh position={[busStopPos[0] - 2.1, busStopPos[1] + 1.4, busStopPos[2]]} userData={{ inspectData: busStopData }} onClick={handleBusStopClick}>
-              <boxGeometry args={[0.08, 2.6, 1.8]} />
-              <meshStandardMaterial color="#38bdf8" roughness={0.1} transparent opacity={0.5} />
-            </mesh>
-            <mesh position={[busStopPos[0], busStopPos[1] + 2.7, busStopPos[2]]} userData={{ inspectData: busStopData }} onClick={handleBusStopClick}>
-              <boxGeometry args={[4.6, 0.15, 2.2]} />
-              <meshStandardMaterial color="#1e293b" metalness={0.8} />
-            </mesh>
-            <mesh position={[busStopPos[0], busStopPos[1] + 0.45, busStopPos[2] - 0.6]} userData={{ inspectData: busStopData }} onClick={handleBusStopClick}>
-              <boxGeometry args={[3.2, 0.08, 0.45]} />
-              <meshStandardMaterial color="#92400e" roughness={0.8} />
-            </mesh>
-          </>
-        )}
+        {/* Bench colliders — a cheap box per bench (StreetBench renders with
+            physics={false} below), sized to its variant and rotated to match. */}
+        {visibleBenches.map((b, idx) => (
+          <mesh key={`bench-collider-${idx}`} visible={false} position={[b.pos[0], 0.45, b.pos[2]]} rotation={[0, b.rotationY, 0]}>
+            <boxGeometry args={[BENCH_MODELS[b.variant].targetLength, 0.9, 0.6]} />
+          </mesh>
+        ))}
+
 
         {/* Sidewalk bollards */}
         {visibleBollardPositions.map((pos, idx) => (
@@ -271,21 +287,20 @@ export const PropsMesh: React.FC<PropsMeshProps> = ({ chunkX, chunkZ, isActiveCh
         </group>
       ))}
 
-      {showBusStop && (
-        <group position={busStopPos} userData={{ inspectData: busStopData }} onClick={handleBusStopClick}>
-          <mesh position={[2.1, 1.4, 0]} userData={{ inspectData: busStopData }}>
-            <boxGeometry args={[0.12, 2.2, 1.4]} />
-            <meshStandardMaterial
-              color="#ffffff"
-              emissive={isNight ? '#60a5fa' : '#ffffff'}
-              emissiveIntensity={isNight ? 1.5 : 0.2}
-            />
-          </mesh>
-        </group>
-      )}
 
       {visibleTreePositions.map((pos, idx) => (
         <StreetTree key={`tree-${idx}`} position={pos} inspectData={treeData} physics={false} />
+      ))}
+
+      {visibleBenches.map((b, idx) => (
+        <StreetBench
+          key={`bench-${idx}`}
+          position={b.pos}
+          rotationY={b.rotationY}
+          variant={b.variant}
+          inspectData={benchData}
+          physics={false}
+        />
       ))}
     </group>
   );

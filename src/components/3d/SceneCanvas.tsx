@@ -3,6 +3,7 @@ import { Canvas } from '@react-three/fiber';
 import { Physics } from '@react-three/rapier';
 import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing';
 import { EnvironmentSky } from './EnvironmentSky';
+import { SkyElements } from './SkyElements';
 import { WorldManager } from './WorldManager';
 import { PlayerController } from './PlayerController';
 import { InteractionRaycaster } from './InteractionRaycaster';
@@ -38,11 +39,18 @@ export const SceneCanvas: React.FC = () => {
         // clipping plane to hide raw scan terrain baked into its geometry
         // (see UzbekBibiKhanym.tsx), which needs this actually turned on.
         gl.localClippingEnabled = true;
+        // Initial daytime exposure (EnvironmentSky then keeps this in sync with
+        // time-of-day). Matches the day value there so there's no first-frame flash.
+        gl.toneMappingExposure = 0.72;
       }}
       className="w-full h-full"
     >
       {/* 1. Dynamic Atmosphere & Lights */}
       <EnvironmentSky />
+
+      {/* 1b. Decorative sky life — clouds, flapping birds, high-altitude planes.
+          Outside <Physics>, no shadows/colliders, counts scale with quality. */}
+      <SkyElements />
 
       {/* 2. Raycaster for POV Center Screen Crosshair Object Inspection */}
       <InteractionRaycaster />
@@ -60,9 +68,9 @@ export const SceneCanvas: React.FC = () => {
       {bloom && quality !== 'low' && (
         <EffectComposer enableNormalPass={false} multisampling={0}>
           <Bloom
-            luminanceThreshold={0.8}
-            luminanceSmoothing={0.4}
-            intensity={1.2}
+            luminanceThreshold={0.95}
+            luminanceSmoothing={0.3}
+            intensity={0.7}
             mipmapBlur
           />
           <Vignette eskil={false} offset={0.1} darkness={0.6} />

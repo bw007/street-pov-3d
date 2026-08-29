@@ -1,7 +1,7 @@
 import React from 'react';
 import { StreetTree } from './StreetTree';
 import { StreetBench } from './StreetBench';
-import { PropModel, PROP_URLS } from './PropModel';
+import { PropModel, PROP_URLS, recolorFir } from './PropModel';
 import { SafeModel } from './ModelErrorBoundary';
 import { InspectableObject } from '../../types';
 
@@ -109,7 +109,7 @@ export const PlazaPark: React.FC<PlazaParkProps> = ({ center }) => {
       ))}
       {firs.map((p, i) => (
         <SafeModel key={`pf-${i}`} name="FirTree">
-          <PropModel url={PROP_URLS.fur} targetHeight={8.5} preRotateX={-Math.PI / 2} collide={false} position={p} />
+          <PropModel url={PROP_URLS.fur} targetHeight={8.5} autoStand collide={false} position={p} onMaterial={recolorFir} />
         </SafeModel>
       ))}
       {benches.map((b, i) => (
