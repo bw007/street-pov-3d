@@ -9,6 +9,11 @@ coverage
 # Production
 dist
 
+# NOTE: the compressed 3D models in public/models/ AND the manifest
+# models-optimize.cache.json are intentionally COMMITTED, not ignored — that's
+# what lets the optimizer compress each model once and skip it on every later
+# build (see docs/asset-pipeline.md). Raw sources live in models-src/.
+
 # Misc
 .DS_Store
 *.pem

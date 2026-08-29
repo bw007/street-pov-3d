@@ -1,0 +1,72 @@
+{
+  "building_interior/interior_building.glb": {
+    "hash": "cdf7ec7a0ecd3946dec297ecf5b610a420f693f9b798f3166a2beabdd0e888eb",
+    "size": 94556,
+    "optimized": false
+  },
+  "building_interior/littlest_tokyo.glb": {
+    "hash": "356213e959d08ca56c702b1a7ae315751819c5f252bfafbc8e17a41dcbc43856",
+    "size": 4133072,
+    "optimized": false
+  },
+  "props/street_tree.glb": {
+    "hash": "9bb02737d2afd63ae2e232652c2f8c4c86cebdaf0367213bee495482a90724ec",
+    "size": 2653080,
+    "optimized": false
+  },
+  "uzbek/bibi_khanym.glb": {
+    "hash": "fad8c811bc5a17d9956c098696571a8e62398fef90ca86572722818169c71206",
+    "size": 15228028,
+    "optimized": false
+  },
+  "uzbek/oliy_majlis_binosi.glb": {
+    "hash": "40bbf574ed8051b46306572cb639743a5e5aa63f1f3a6dda812fee87b365501b",
+    "size": 444868,
+    "optimized": false
+  },
+  "uzbek/tashkent_city_nest_one.glb": {
+    "hash": "7a27cb12553d1baa86ce58b6eec0ccb0e8f02df5201fe01e3135e20c33e5e6f8",
+    "size": 3644252,
+    "optimized": false
+  },
+  "uzbek/tashkent_sirk.glb": {
+    "hash": "5fca16af9f9d7d2f028598b500ab4e5dfff276165571d8b555a00e4327cc1e5f",
+    "size": 1516608,
+    "optimized": false
+  },
+  "vehicles/chevrolet_cobalt_ltz.glb": {
+    "hash": "9e009b62d4b2f3a5c6c66a0c8ff19fc18302da6ed040d55582b5dcfb0e26a4d4",
+    "size": 32109420,
+    "optimized": false
+  },
+  "vehicles/chevrolet_onix_2024.glb": {
+    "hash": "0800a32d39fed3c9437522e58d91ae129b9a05b2c857be34755316943bb1974a",
+    "size": 21699088,
+    "optimized": false
+  },
+  "vehicles/gentra.glb": {
+    "hash": "36fc0d6ce35303862db1ea79b6919ca512c863be575d22fdff1ad97a34e7d1c5",
+    "size": 19497792,
+    "optimized": false
+  },
+  "vehicles/kia_k5_2025.glb": {
+    "hash": "b3ae01dd088b2a9ce8be267a58d63047b767166f4351fb444aba7af5465cfdfe",
+    "size": 15298592,
+    "optimized": false
+  },
+  "vehicles/spark.glb": {
+    "hash": "a3c197d1ce4f40ee63e80a5983e8d981f01f4d2dd6474662a07266f87fa06627",
+    "size": 29154572,
+    "optimized": false
+  },
+  "vehicles/sports_car.glb": {
+    "hash": "cc86d7594abfd3e1901ebc426d2c52ff7f69cc7e50544ca968acdcd18f26d472",
+    "size": 1681572,
+    "optimized": false
+  },
+  "vehicles/truck.glb": {
+    "hash": "0ade84a3d4c00fe24ef5463751482d646c322f472e02753bf23b4c5d7033a049",
+    "size": 369980,
+    "optimized": false
+  }
+}

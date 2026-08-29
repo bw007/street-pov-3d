@@ -62,3 +62,21 @@ npm run dev
 ## 🎨 3D Dizaynerlar (Blender) Uchun Qo'llanma
 Blender dasturida tayyorlangan 3D modellarni platformaga to'g'ri eksport qilish va o'rnatish bo'yicha to'liq qo'llanma:
 👉 [`BLENDER_GUIDE.md`](./BLENDER_GUIDE.md) faylida mavjud.
+
+---
+
+## ⚙️ 3D Modellarni Avtomatik Optimizatsiya (meshopt + webp)
+
+Xom modellar `models-src/` da saqlanadi. `npm run dev` va `npm run build` oldidan
+avtomatik ishga tushadigan servis ularni **meshopt** (geometriya) va **webp**
+(tekstura) bilan siqib, `public/models/` ga chiqaradi — bu FPS tushishi va yuklanish
+vaqtidagi "muzlash"ni kamaytiradi. Ilova kodiga o'zgartirish shart emas (`useGLTF`
+meshopt/webp'ni o'zi o'qiydi).
+
+```bash
+npm run optimize:models          # qo'lda ishga tushirish (o'zgarmaganlar o'tkazib yuboriladi)
+npm run optimize:models:force    # keshni e'tiborsiz qoldirib, hammasini qayta siqish
+```
+
+Sozlash: [`scripts/optimize-models.config.mjs`](./scripts/optimize-models.config.mjs) ·
+To'liq hujjat: 👉 [`docs/asset-pipeline.md`](./docs/asset-pipeline.md)

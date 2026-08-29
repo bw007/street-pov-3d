@@ -1,32 +1,64 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef } from 'react';
 import { useGLTF } from '@react-three/drei';
+import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { RigidBody } from '@react-three/rapier';
 import { useWorldStore } from '../../stores/useWorldStore';
 import { soundManager } from '../../audio/SoundManager';
 import { InspectableObject } from '../../types';
-
-interface VehicleProps {
-  position: [number, number, number];
-  rotationY: number;
-  type: 'sedan' | 'suv' | 'bus' | 'taxi';
-  color: string;
-  isActiveChunk?: boolean;
-}
+import { CHUNK_SIZE } from '../../data/streetsData';
 
 const BASE = import.meta.env?.BASE_URL || './';
 const BASE_URL = BASE.endsWith('/') ? BASE : BASE + '/';
 
-const SPORTS_CAR_PATH = `${BASE_URL}models/vehicles/sports_car.glb`;
-const TRUCK_PATH = `${BASE_URL}models/vehicles/truck.glb`;
+interface CarModel {
+  path: string;
+  name: string;
+  badge: string;
+  /** Real length (m) — the model auto-scales to this. */
+  length: number;
+  /** Radians. Add Math.PI here if a model turns out to face backwards. */
+  forwardOffset: number;
+}
 
+// Real traffic car variants, spread across every street for variety.
+export const CAR_MODELS: CarModel[] = [
+  { path: `${BASE_URL}models/vehicles/chevrolet_cobalt_ltz.glb`, name: 'Chevrolet Cobalt LTZ', badge: 'UZAUTO SEDAN',    length: 4.48, forwardOffset: 0 },
+  { path: `${BASE_URL}models/vehicles/kia_k5_2025.glb`,          name: 'Kia K5 (2025)',        badge: 'BIZNES SEDAN',    length: 4.91, forwardOffset: 0 },
+  { path: `${BASE_URL}models/vehicles/gentra.glb`,               name: 'Chevrolet Gentra',     badge: 'UZAUTO SEDAN',    length: 4.48, forwardOffset: 0 },
+  { path: `${BASE_URL}models/vehicles/spark.glb`,                name: 'Chevrolet Spark',      badge: 'SHAHAR XETCHBEK', length: 3.64, forwardOffset: 0 },
+];
+
+const TRUCK_MODEL: CarModel = {
+  path: `${BASE_URL}models/vehicles/truck.glb`, name: 'Yuk avtomobili', badge: 'MAXSUS TRANSPORT', length: 7.5, forwardOffset: 0,
+};
+
+interface VehicleProps {
+  /** Spawn position along the lane; also the fixed perpendicular (lane) offset. */
+  startPos: [number, number, number];
+  /** Axis the car drives along. */
+  axis: 'x' | 'z';
+  /** Travel direction along that axis. */
+  dir: 1 | -1;
+  /** Metres per second. */
+  speed: number;
+  /** Chunk centre coordinate along `axis` — the car loops within centre ± 40 m. */
+  axisCenter: number;
+  /** Index into CAR_MODELS (ignored when isBus). */
+  variant: number;
+  isBus?: boolean;
+  isActiveChunk?: boolean;
+}
+
+/**
+ * A moving traffic vehicle. Drives along its lane at a slow, constant speed and
+ * loops within its chunk. Pure visual (no physics collider) so it moves smoothly
+ * and never shoves the walking player; the crosshair inspector still works via an
+ * invisible proxy box. Keeps each model's original PBR materials.
+ */
 export const VehicleMesh: React.FC<VehicleProps> = ({
-  position,
-  rotationY,
-  type,
-  color,
-  isActiveChunk = true,
+  startPos, axis, dir, speed, axisCenter, variant, isBus = false, isActiveChunk = true,
 }) => {
+  const groupRef = useRef<THREE.Group>(null);
   const timeOfDay = useWorldStore((s) => s.timeOfDay);
   const setInspectedObject = useWorldStore((s) => s.setInspectedObject);
   const currentStreet = useWorldStore((s) => s.currentStreet);
@@ -34,140 +66,93 @@ export const VehicleMesh: React.FC<VehicleProps> = ({
   const isNight = timeOfDay === 'night';
   const isSunset = timeOfDay === 'sunset';
 
-  const isTruckOrBus = type === 'bus';
-  const isTaxi = type === 'taxi';
+  const model = isBus
+    ? TRUCK_MODEL
+    : CAR_MODELS[((variant % CAR_MODELS.length) + CAR_MODELS.length) % CAR_MODELS.length];
+  const { scene } = useGLTF(model.path);
 
-  // Load 3D GLTF Model based on vehicle type
-  const sportsGltf = useGLTF(SPORTS_CAR_PATH);
-  const truckGltf = useGLTF(TRUCK_PATH);
-
-  const activeGltf = isTruckOrBus ? truckGltf : sportsGltf;
-
-  // Clone, scale, and apply realistic automotive paint materials
   const { modelGroup, colliderSize } = useMemo(() => {
-    const cloned = activeGltf.scene.clone(true);
-
-    const actualColor = isTaxi ? '#eab308' : color;
-
-    // Premium Automotive Clearcoat Paint Material
-    const bodyMaterial = new THREE.MeshPhysicalMaterial({
-      color: actualColor,
-      metalness: 0.9,
-      roughness: 0.15,
-      clearcoat: 1.0,
-      clearcoatRoughness: 0.1,
-      reflectivity: 0.9,
-    });
-
-    // Plain transparent tint instead of `transmission` (transmission forces an
-    // extra offscreen render pass per object and is very costly when there are
-    // many vehicles on screen at once).
-    const glassMaterial = new THREE.MeshStandardMaterial({
-      color: '#0f172a',
-      metalness: 0.2,
-      roughness: 0.05,
-      transparent: true,
-      opacity: 0.75,
-    });
-
+    const cloned = scene.clone(true);
     cloned.traverse((child) => {
       if (child instanceof THREE.Mesh) {
         child.castShadow = true;
         child.receiveShadow = true;
-        // The sports car model alone is ~358,000 triangles across 51 meshes;
-        // the crosshair raycaster tests the whole scene every frame, so skip
-        // it here — the invisible collider box below handles click/hover.
-        child.raycast = () => {};
-
-        const matName = (child.material?.name || child.name || '').toLowerCase();
-
-        if (matName.includes('body') || matName.includes('paint') || matName.includes('car_paint') || matName.includes('red')) {
-          child.material = bodyMaterial;
-        } else if (matName.includes('glass') || matName.includes('window') || matName.includes('windshield')) {
-          child.material = glassMaterial;
-        }
+        child.raycast = () => {}; // let the invisible proxy handle the crosshair
       }
     });
 
-    // Compute bounding box and normalize to realistic dimensions
     const bbox = new THREE.Box3().setFromObject(cloned);
     const size = new THREE.Vector3();
     bbox.getSize(size);
     const center = new THREE.Vector3();
     bbox.getCenter(center);
 
-    // Target Length: 4.6m for sports car, 7.5m for truck/bus
-    const TARGET_LENGTH = isTruckOrBus ? 7.5 : 4.6;
     const rawLength = Math.max(size.x, size.z, 0.001);
-    const autoScale = TARGET_LENGTH / rawLength;
+    let autoScale = model.length / rawLength;
+    if (!Number.isFinite(autoScale) || autoScale <= 0) autoScale = 1;
+    const safe = (v: number) => (Number.isFinite(v) ? v : 0);
+
+    cloned.position.set(
+      safe(-center.x * autoScale),
+      safe(-bbox.min.y * autoScale),
+      safe(-center.z * autoScale)
+    );
+    cloned.scale.setScalar(autoScale);
 
     const group = new THREE.Group();
-    // Center squarely and align base at ground level Y=0
-    cloned.position.set(
-      -center.x * autoScale,
-      -bbox.min.y * autoScale,
-      -center.z * autoScale
-    );
-    cloned.scale.set(autoScale, autoScale, autoScale);
     group.add(cloned);
+    // Normalize so the car's LENGTH runs along local +Z — otherwise a model
+    // authored along X would drive sideways.
+    if (size.x > size.z) group.rotation.y = Math.PI / 2;
+    group.rotation.y += model.forwardOffset;
 
-    const actualHeight = size.y * autoScale;
-    const actualWidth = Math.min(size.x, size.z) * autoScale;
-
+    const width = Math.min(size.x, size.z) * autoScale;
+    const height = size.y * autoScale;
     return {
       modelGroup: group,
-      colliderSize: [actualWidth * 0.9, actualHeight, TARGET_LENGTH * 0.9] as [number, number, number],
+      colliderSize: [
+        Math.max(width * 0.9, 0.6),
+        Math.max(height, 0.6),
+        Math.max(model.length * 0.9, 0.6),
+      ] as [number, number, number],
     };
-  }, [activeGltf, isTruckOrBus, isTaxi, color]);
+  }, [scene, model]);
 
-  // Inspection Data for real 3D vehicles
-  const inspectData: InspectableObject = useMemo(() => {
-    if (isTaxi) {
-      return {
-        id: `taxi_${position[0]}_${position[2]}`,
-        title: "Yandex / Shahar Smart Taksisi (3D Model)",
-        category: 'vehicle',
-        badge: "AVTOMOBIL",
-        description: `${currentStreet?.name || "Markaziy ko'cha"} bo'ylab harakatlanuvchi zamonaviy shahar taksisi. Konditsioner, GPS monitoring va naqdsiz to'lov mavjud.`,
-        streetName: currentStreet?.name,
-        details: [
-          { label: "Model", value: "Modern Sport Sedan (PBR 3D)" },
-          { label: "Tarif", value: "Komfort / Start 8,000 so'm" },
-          { label: "Dvigatel", value: "1.5L Turbo Hybrid (Evro-6)" },
-          { label: "Holati", value: "Buyurtma kutmoqda" },
-        ],
-      };
-    }
-    if (isTruckOrBus) {
-      return {
-        id: `truck_${position[0]}_${position[2]}`,
-        title: "Xizmat Ko'rsatish Yuk Avtomobili (3D Model)",
-        category: 'vehicle',
-        badge: "MAXSUS TRANSPORT",
-        description: "Shahar do'konlari va savdo markazlariga tovar va mahsulotlarni yetkazib beruvchi maxsus logistika transporti.",
-        streetName: currentStreet?.name,
-        details: [
-          { label: "Model", value: "Cesium Logistics Heavy Truck" },
-          { label: "Yuk ko'tarish", value: "5.5 Tonna" },
-          { label: "Yoqilg'i turi", value: "Metan gaz / Dizel Evro-5" },
-        ],
-      };
-    }
-    return {
-      id: `car_${position[0]}_${position[2]}`,
-      title: "Premium Sport Sedan Avtomobili (3D Model)",
-      category: 'vehicle',
-      badge: "3D REAL MODEL",
-      description: `${currentStreet?.name || "Markaziy ko'cha"}da turgan fotorealistik metall qoplamali zamonaviy sport avtomobili.`,
-      streetName: currentStreet?.name,
-      details: [
-        { label: "Model", value: "V8 Twin-Turbo Sport Sedan" },
-        { label: "Tezlanish (0-100)", value: "3.4 soniya" },
-        { label: "Quvvat", value: "620 Ot kuchi (HP)" },
-        { label: "Rangi", value: color.toUpperCase() },
-      ],
-    };
-  }, [isTaxi, isTruckOrBus, position, currentStreet?.name, color]);
+  // Face travel direction: orient the normalized local +Z (car length) along it.
+  const heading = axis === 'z'
+    ? (dir > 0 ? 0 : Math.PI)
+    : (dir > 0 ? Math.PI / 2 : -Math.PI / 2);
+
+  // Constant lane geometry (loop the coordinate within chunk centre ± 40 m).
+  const half = CHUNK_SIZE / 2;
+  const min = axisCenter - half;
+  const startCoord = axis === 'z' ? startPos[2] : startPos[0];
+  const perp = axis === 'z' ? startPos[0] : startPos[2];
+  const y = startPos[1];
+  const base = startCoord - min;
+
+  useFrame((state) => {
+    const g = groupRef.current;
+    if (!g) return;
+    const t = state.clock.elapsedTime;
+    const coord = min + ((((base + speed * dir * t) % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE);
+    if (axis === 'z') g.position.set(perp, y, coord);
+    else g.position.set(coord, y, perp);
+  });
+
+  const inspectData: InspectableObject = useMemo(() => ({
+    id: `veh_${startPos[0].toFixed(1)}_${startPos[2].toFixed(1)}_${axis}${dir}`,
+    title: `${model.name} (3D Model)`,
+    category: 'vehicle',
+    badge: model.badge,
+    description: `${currentStreet?.name || "Markaziy ko'cha"} bo'ylab harakatlanayotgan zamonaviy ${model.name}.`,
+    streetName: currentStreet?.name,
+    details: [
+      { label: 'Model', value: model.name },
+      { label: 'Uzunligi', value: `${model.length.toFixed(2)} m` },
+      { label: 'Holati', value: 'Harakatda' },
+    ],
+  }), [model, startPos, axis, dir, currentStreet?.name]);
 
   const handleInspect = (e: { stopPropagation: () => void }) => {
     e.stopPropagation();
@@ -176,76 +161,56 @@ export const VehicleMesh: React.FC<VehicleProps> = ({
   };
 
   return (
-    <group position={position} rotation={[0, rotationY, 0]}>
-      {/* Solid Physics Vehicle Body (also doubles as the cheap raycast target
-          for click/hover, instead of the ~358,000-triangle visual model) */}
-      <RigidBody type="fixed" colliders="cuboid">
-        <mesh
-          position={[0, colliderSize[1] / 2, 0]}
-          visible={false}
-          userData={{ inspectData }}
-          onClick={handleInspect}
-          onPointerOver={(e: { stopPropagation: () => void }) => {
-            e.stopPropagation();
-            document.body.style.cursor = 'pointer';
-          }}
-          onPointerOut={() => {
-            document.body.style.cursor = 'auto';
-          }}
-        >
-          <boxGeometry args={[colliderSize[0], colliderSize[1], colliderSize[2]]} />
-        </mesh>
-      </RigidBody>
+    <group ref={groupRef} position={startPos} rotation={[0, heading, 0]}>
+      {/* Invisible proxy for the crosshair inspector (the detailed car mesh has
+          raycasting disabled). No physics collider — smooth, player-safe traffic. */}
+      <mesh
+        position={[0, colliderSize[1] / 2, 0]}
+        visible={false}
+        userData={{ inspectData }}
+        onClick={handleInspect}
+        onPointerOver={(e: { stopPropagation: () => void }) => {
+          e.stopPropagation();
+          document.body.style.cursor = 'pointer';
+        }}
+        onPointerOut={() => {
+          document.body.style.cursor = 'auto';
+        }}
+      >
+        <boxGeometry args={colliderSize} />
+      </mesh>
 
-      {/* Render Real 3D GLTF Vehicle Model */}
+      {/* Real 3D GLTF vehicle (original materials preserved). */}
       <primitive object={modelGroup} />
 
-      {/* Taxi Roof Beacon Light */}
-      {isTaxi && (
-        <group position={[0, 1.45, 0]}>
-          <mesh>
-            <boxGeometry args={[0.5, 0.15, 0.2]} />
-            <meshStandardMaterial
-              color="#eab308"
-              emissive="#eab308"
-              emissiveIntensity={isNight ? 3 : 1}
-            />
-          </mesh>
-        </group>
-      )}
-
-      {/* Dynamic Headlights Lighting System (Illuminates the road at night/sunset) */}
+      {/* Headlights at dusk/night (front is local +Z). */}
       {isActiveChunk && (isNight || isSunset) && (
         <>
-          {/* Left Headlight */}
           <spotLight
-            position={[-0.7, 0.6, colliderSize[2] / 2 + 0.2]}
-            target-position={[-0.7, 0, colliderSize[2] / 2 + 18]}
+            position={[-0.6, 0.6, colliderSize[2] / 2 + 0.2]}
+            target-position={[-0.6, 0, colliderSize[2] / 2 + 16]}
             angle={0.4}
             penumbra={0.4}
             color="#fef08a"
-            intensity={isNight ? 35 : 18}
-            distance={30}
+            intensity={isNight ? 28 : 14}
+            distance={26}
             decay={2}
           />
-          {/* Right Headlight */}
           <spotLight
-            position={[0.7, 0.6, colliderSize[2] / 2 + 0.2]}
-            target-position={[0.7, 0, colliderSize[2] / 2 + 18]}
+            position={[0.6, 0.6, colliderSize[2] / 2 + 0.2]}
+            target-position={[0.6, 0, colliderSize[2] / 2 + 16]}
             angle={0.4}
             penumbra={0.4}
             color="#fef08a"
-            intensity={isNight ? 35 : 18}
-            distance={30}
+            intensity={isNight ? 28 : 14}
+            distance={26}
             decay={2}
           />
-
-          {/* Rear Red Taillights */}
           <pointLight
-            position={[0, 0.65, -colliderSize[2] / 2 - 0.2]}
+            position={[0, 0.6, -colliderSize[2] / 2 - 0.2]}
             color="#ef4444"
-            intensity={isNight ? 12 : 5}
-            distance={10}
+            intensity={isNight ? 10 : 4}
+            distance={9}
             decay={2}
           />
         </>
@@ -254,5 +219,7 @@ export const VehicleMesh: React.FC<VehicleProps> = ({
   );
 };
 
-useGLTF.preload(SPORTS_CAR_PATH);
-useGLTF.preload(TRUCK_PATH);
+// NOTE: intentionally NOT preloaded. These car models are large (15–31 MB);
+// preloading them would block the initial loading screen on ~90 MB of traffic.
+// They stream in per-chunk instead — the <SafeModel> wrapper's local Suspense
+// keeps the scene rendering (cars just pop in) while each one loads.

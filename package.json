@@ -5,8 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "predev": "node scripts/optimize-models.mjs",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "prebuild": "node scripts/optimize-models.mjs",
+    "preview": "vite preview",
+    "optimize:models": "node scripts/optimize-models.mjs",
+    "optimize:models:force": "node scripts/optimize-models.mjs --force"
   },
   "dependencies": {
     "@react-three/drei": "^9.120.4",
@@ -23,6 +27,11 @@
     "zustand": "^5.0.1"
   },
   "devDependencies": {
+    "@gltf-transform/core": "^4.1.1",
+    "@gltf-transform/extensions": "^4.1.1",
+    "@gltf-transform/functions": "^4.1.1",
+    "meshoptimizer": "^0.22.0",
+    "sharp": "^0.33.5",
     "@types/node": "^22.9.0",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
