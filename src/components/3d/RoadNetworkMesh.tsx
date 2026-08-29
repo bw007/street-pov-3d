@@ -5,13 +5,37 @@ import { CHUNK_SIZE } from '../../data/streetsData';
 interface RoadNetworkMeshProps {
   chunkX: number;
   chunkZ: number;
+  // Corner indices (0=+X+Z, 1=-X+Z, 2=+X-Z, 3=-X-Z) to leave as open plaza
+  // ground instead of standard sidewalk curb + lawn — used where a large
+  // showcase monument occupies that quadrant instead of a regular building,
+  // since the monument's own scanned ground/courtyard shouldn't have a
+  // street curb slab cutting through it.
+  excludeQuadrants?: number[];
+  // A monument's dedicated chunk is a pedestrian plaza, not an intersection —
+  // skip the road/crosswalk/lane-marking geometry entirely and leave a flat
+  // open ground plane so the monument (centered in the chunk) doesn't have a
+  // road slab cutting through its courtyard.
+  plazaOnly?: boolean;
 }
 
-export const RoadNetworkMesh: React.FC<RoadNetworkMeshProps> = ({ chunkX, chunkZ }) => {
+export const RoadNetworkMesh: React.FC<RoadNetworkMeshProps> = ({ chunkX, chunkZ, excludeQuadrants = [], plazaOnly = false }) => {
   const worldX = chunkX * CHUNK_SIZE;
   const worldZ = chunkZ * CHUNK_SIZE;
 
   const roadWidth = 14; // 14m wide road (4 lanes)
+
+  if (plazaOnly) {
+    return (
+      <group position={[worldX, 0, worldZ]}>
+        <RigidBody type="fixed" colliders="cuboid">
+          <mesh receiveShadow position={[0, -0.05, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <planeGeometry args={[CHUNK_SIZE, CHUNK_SIZE]} />
+            <meshStandardMaterial color="#1e293b" roughness={0.9} metalness={0.1} />
+          </mesh>
+        </RigidBody>
+      </group>
+    );
+  }
 
   return (
     <group position={[worldX, 0, worldZ]}>
@@ -70,7 +94,7 @@ export const RoadNetworkMesh: React.FC<RoadNetworkMeshProps> = ({ chunkX, chunkZ
       ))}
 
       {/* 5. Elevated Sidewalk Curbs (15cm height with physics) */}
-      {[0, 1, 2, 3].map((idx) => {
+      {[0, 1, 2, 3].filter((idx) => !excludeQuadrants.includes(idx)).map((idx) => {
         const cornerSize = (CHUNK_SIZE - roadWidth) / 2;
         const posX = idx % 2 === 0 ? (roadWidth / 2 + cornerSize / 2) : -(roadWidth / 2 + cornerSize / 2);
         const posZ = idx < 2 ? (roadWidth / 2 + cornerSize / 2) : -(roadWidth / 2 + cornerSize / 2);

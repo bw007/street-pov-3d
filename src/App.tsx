@@ -1,18 +1,26 @@
 import React, { Suspense, useState, useEffect } from 'react';
+import { useProgress } from '@react-three/drei';
 import { SceneCanvas } from './components/3d/SceneCanvas';
 import { HUD } from './components/ui/HUD';
 import { Loader2, Compass } from 'lucide-react';
 
 export const App: React.FC = () => {
+  const { progress, active } = useProgress();
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Initial loading simulated delay for assets and shaders compilation
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 1200);
-    return () => clearTimeout(timer);
-  }, []);
+    // Wait for every GLTF/texture fetch tracked by three's loading manager to
+    // actually finish (not a fixed timer) before letting the player click
+    // "start" — otherwise clicking to lock the pointer can land right in the
+    // middle of the first heavy GPU upload / shader compile for the still-
+    // loading models, which is what showed up as a freeze after pressing
+    // start. The small delay after progress hits 100% gives the first real
+    // frame a chance to paint before the splash is removed.
+    if (!active && progress >= 100) {
+      const timer = setTimeout(() => setIsLoading(false), 300);
+      return () => clearTimeout(timer);
+    }
+  }, [active, progress]);
 
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-slate-950">
@@ -47,9 +55,14 @@ export const App: React.FC = () => {
             </p>
 
             <div className="w-48 h-1.5 bg-slate-800 rounded-full overflow-hidden mb-3">
-              <div className="w-full h-full bg-gradient-to-r from-blue-500 to-indigo-500 animate-pulse" />
+              <div
+                className="h-full bg-gradient-to-r from-blue-500 to-indigo-500"
+                style={{ width: `${Math.round(progress)}%` }}
+              />
             </div>
-            <span className="text-[11px] font-mono text-blue-400">Fizika va Ko'chalar Yuklanmoqda...</span>
+            <span className="text-[11px] font-mono text-blue-400">
+              3D Modellar Yuklanmoqda... {Math.round(progress)}%
+            </span>
           </div>
         </div>
       )}

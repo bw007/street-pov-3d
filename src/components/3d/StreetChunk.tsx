@@ -28,16 +28,40 @@ export const StreetChunk: React.FC<StreetChunkProps> = ({ chunkX, chunkZ }) => {
   const buildings = useMemo(() => generateChunkBuildings(chunkX, chunkZ), [chunkX, chunkZ]);
   const street = useMemo(() => getStreetByChunk(chunkX, chunkZ), [chunkX, chunkZ]);
 
-  const isCenterChunk = chunkX === 0 && chunkZ === 0;
+  // Each showcase monument previously shared the center chunk with the other
+  // two plus a regular tower and standard street furniture — all crammed
+  // into the same 80x80m block. That crowding (sidewalk curbs, lamps, a
+  // tower right next to a scanned monument several times its footprint) is
+  // what made the monuments look like they didn't belong on the ground.
+  // Each one now gets an entire dedicated chunk to itself as an open plaza;
+  // the other two are pushed out to the immediate east/west neighbor chunks
+  // (both already inside the default 3x3 streamed radius around spawn).
+  const monumentType: 'bibi' | 'oliyMajlis' | 'tokyo' | null =
+    chunkX === 0 && chunkZ === 0 ? 'bibi' :
+    chunkX === 1 && chunkZ === 0 ? 'oliyMajlis' :
+    chunkX === -1 && chunkZ === 0 ? 'tokyo' :
+    null;
+  const isMonumentChunk = monumentType !== null;
+
+  // Clear every quadrant's sidewalk curb/lawn and street furniture in a
+  // monument chunk, leaving flat open ground for the plaza.
+  const clearedQuadrants = isMonumentChunk ? [0, 1, 2, 3] : [];
 
   const vehicles = useMemo(() => {
-    const seed = (chunkX * 9301 + chunkZ * 49297) % 233280;
     const vList: {
       pos: [number, number, number];
       rotY: number;
       type: 'sedan' | 'suv' | 'bus' | 'taxi';
       color: string;
     }[] = [];
+
+    // Monument chunks are an open pedestrian plaza, not a normal 4-lane
+    // intersection — the fixed lane positions below would otherwise drive a
+    // car straight into the monument's much larger footprint (this was the
+    // "car parked under Bibi Khanym" issue).
+    if (isMonumentChunk) return vList;
+
+    const seed = (chunkX * 9301 + chunkZ * 49297) % 233280;
 
     // North-South Lane Vehicles
     vList.push({
@@ -70,47 +94,34 @@ export const StreetChunk: React.FC<StreetChunkProps> = ({ chunkX, chunkZ }) => {
     });
 
     return vList;
-  }, [chunkX, chunkZ, worldX, worldZ]);
+  }, [chunkX, chunkZ, worldX, worldZ, isMonumentChunk]);
 
   return (
     <group key={`chunk-${chunkX}-${chunkZ}`}>
       {/* 1. Road Network, Sidewalks, Crosswalks */}
-      <RoadNetworkMesh chunkX={chunkX} chunkZ={chunkZ} />
+      <RoadNetworkMesh chunkX={chunkX} chunkZ={chunkZ} excludeQuadrants={clearedQuadrants} plazaOnly={isMonumentChunk} />
 
-      {/* 2. Monumental Uzbek & International 3D Architectural Models in Showcase Area */}
-      {isCenterChunk ? (
-        <>
-          {/* A. Bibixonim Jome Masjidi (Samarqand 3D Monument) */}
-          <UzbekBibiKhanym
-            position={[worldX + 24, 0, worldZ + 24]}
-            rotationY={0}
-          />
-
-          {/* B. Oliy Majlis Qonunchilik Palatasi Binosi (Toshkent 3D Palace) */}
-          <UzbekOliyMajlis
-            position={[worldX - 24, 0, worldZ + 24]}
-            rotationY={Math.PI / 2}
-          />
-
-          {/* C. Tokyo Architectural Complex with Walkable Stairs */}
-          <ImportedTokyoBuilding
-            position={[worldX + 24, 0, worldZ - 24]}
-            rotationY={0}
-          />
-
-          {/* D. Surrounding City Towers */}
-          {buildings.slice(3).map((b) => (
-            <BuildingMesh key={b.id} building={b} />
-          ))}
-        </>
-      ) : (
+      {/* 2. Monumental Uzbek & International 3D Architectural Models — each
+          gets its own dedicated plaza chunk, centered so its footprint stays
+          well inside the chunk instead of spilling into a neighboring chunk
+          that still has a regular building in it. */}
+      {monumentType === 'bibi' && (
+        <UzbekBibiKhanym position={[worldX, 0, worldZ]} rotationY={0} />
+      )}
+      {monumentType === 'oliyMajlis' && (
+        <UzbekOliyMajlis position={[worldX, 0, worldZ]} rotationY={Math.PI / 2} />
+      )}
+      {monumentType === 'tokyo' && (
+        <ImportedTokyoBuilding position={[worldX, 0, worldZ]} rotationY={0} />
+      )}
+      {!isMonumentChunk && (
         buildings.map((b) => (
           <BuildingMesh key={b.id} building={b} />
         ))
       )}
 
       {/* 3. Street Props: Lamps, Bus Stops, Trees, Benches */}
-      <PropsMesh chunkX={chunkX} chunkZ={chunkZ} streetName={street?.name} isActiveChunk={isActiveChunk} />
+      <PropsMesh chunkX={chunkX} chunkZ={chunkZ} streetName={street?.name} isActiveChunk={isActiveChunk} excludeQuadrants={clearedQuadrants} />
 
       {/* 4. Realistic 3D Vehicles on Roads */}
       {vehicles.map((v, i) => (

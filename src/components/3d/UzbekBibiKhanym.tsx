@@ -15,6 +15,25 @@ const BASE = import.meta.env?.BASE_URL || './';
 const BASE_URL = BASE.endsWith('/') ? BASE : BASE + '/';
 const MODEL_PATH = `${BASE_URL}models/uzbek/bibi_khanym.glb`;
 
+// The raw photogrammetry scan's absolute lowest point is well below the
+// building's actual courtyard/pavement surface — drone scans reconstruct a
+// noisy, sparse "tail" beneath the true ground near grazing camera angles.
+// Measured directly from the scan's vertex Y distribution: there's a sharp
+// density peak (the real, densely-sampled courtyard slab) at this raw local
+// Y — the raw bbox minimum sits about 2 raw units below it, which is that
+// noise tail, not real ground. This is the ONE measurement the alignment
+// below depends on; everything else (auto-scale, meters offsets) derives
+// from it at runtime so it can't drift out of sync if TARGET_HEIGHT changes.
+const PAVEMENT_LOCAL_Y = -11.9;
+
+// How far below world Y=0 the clip plane sits, in final scene meters. Must
+// be > 0: a clip plane placed exactly at (or above) ground level leaves a
+// hairline gap where clipped-away geometry reveals the background right at
+// the building's base, making it look like it's floating. Keeping it a few
+// centimeters *below* ground instead lets the flat street mesh cover the
+// seam.
+const CLIP_BURY_MARGIN = 0.05;
+
 export const UzbekBibiKhanym: React.FC<BibiKhanymProps> = ({
   position,
   rotationY = 0,
@@ -31,18 +50,6 @@ export const UzbekBibiKhanym: React.FC<BibiKhanymProps> = ({
   const { modelGroup, proxySize } = useMemo(() => {
     const cloned = scene.clone(true);
 
-    cloned.traverse((child) => {
-      if (child instanceof THREE.Mesh) {
-        child.castShadow = true;
-        child.receiveShadow = true;
-        // The crosshair raycaster tests the whole scene every frame; this
-        // model's ~2,000,000 triangles make per-triangle raycasting against
-        // it very expensive up close. Skip it here — a cheap proxy box
-        // (below) handles click/hover detection instead.
-        child.raycast = () => {};
-      }
-    });
-
     const bbox = new THREE.Box3().setFromObject(cloned);
     const size = new THREE.Vector3();
     bbox.getSize(size);
@@ -54,10 +61,45 @@ export const UzbekBibiKhanym: React.FC<BibiKhanymProps> = ({
     const rawHeight = size.y > 0.001 ? size.y : 1;
     const autoScale = TARGET_HEIGHT / rawHeight;
 
+    // Places the real pavement (not the raw bbox minimum, which includes
+    // the noise tail below it) exactly at world Y=0.
+    const groupPositionY = -PAVEMENT_LOCAL_Y * autoScale;
+
+    // This is a raw drone photogrammetry scan, and every one of its 25 mesh
+    // pieces is split by texture-atlas material, not by structural part —
+    // each piece already spans almost the model's entire footprint. That
+    // means the scanned excavation-site ground/dirt mound around the base
+    // isn't isolated in its own mesh; it's mixed into all of them, and
+    // renders as a dark, jagged mass poking up through the game's flat
+    // ground. A world-space clipping plane just below the real courtyard
+    // level discards that terrain without needing to touch the geometry
+    // itself — see CLIP_BURY_MARGIN above for why it's below ground rather
+    // than exactly at it.
+    const clipWorldY = position[1] - CLIP_BURY_MARGIN;
+    const clipPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -clipWorldY);
+
+    cloned.traverse((child) => {
+      if (child instanceof THREE.Mesh) {
+        child.castShadow = true;
+        child.receiveShadow = true;
+        // The crosshair raycaster tests the whole scene every frame; this
+        // model's ~2,000,000 triangles make per-triangle raycasting against
+        // it very expensive up close. Skip it here — a cheap proxy box
+        // (below) handles click/hover detection instead.
+        child.raycast = () => {};
+
+        const materials = Array.isArray(child.material) ? child.material : [child.material];
+        materials.forEach((mat) => {
+          mat.clippingPlanes = [clipPlane];
+          mat.clipShadows = true;
+        });
+      }
+    });
+
     const group = new THREE.Group();
     cloned.position.set(
       -center.x * autoScale,
-      -bbox.min.y * autoScale,
+      groupPositionY,
       -center.z * autoScale
     );
     cloned.scale.set(autoScale, autoScale, autoScale);
@@ -67,7 +109,7 @@ export const UzbekBibiKhanym: React.FC<BibiKhanymProps> = ({
       modelGroup: group,
       proxySize: [size.x * autoScale, TARGET_HEIGHT, size.z * autoScale] as [number, number, number],
     };
-  }, [scene]);
+  }, [scene, position[1]]);
 
   const inspectData: InspectableObject = useMemo(() => ({
     id: `bibi_khanym_${position[0]}_${position[2]}`,

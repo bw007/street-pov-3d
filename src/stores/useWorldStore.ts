@@ -30,7 +30,7 @@ interface WorldStore {
 }
 
 export const useWorldStore = create<WorldStore>((set, get) => ({
-  playerPosition: [0, 1.7, 0],
+  playerPosition: [0, 1.7, -35],
   playerRotation: 0,
   playerSpeed: 0,
   activeChunk: { x: 0, z: 0 },

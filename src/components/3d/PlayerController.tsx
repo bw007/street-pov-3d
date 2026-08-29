@@ -227,7 +227,13 @@ export const PlayerController: React.FC = () => {
       mass={80}
       type="dynamic"
       ccd={true}
-      position={[0, 1.15, 0]}
+      // Chunk (0,0) is now Bibi Khanym's dedicated plaza, centered exactly at
+      // world (0,0) — spawning the player there put the camera inside the
+      // monument's own geometry (which is what actually looked like broken/
+      // floating architecture in every screenshot, not a positioning bug in
+      // the model itself). Spawn at the plaza's edge instead, clear of the
+      // monument's ~30m footprint, so the player walks up to it from outside.
+      position={[0, 1.15, -35]}
       enabledRotations={[false, false, false]}
       friction={0.0}
       restitution={0.0}
