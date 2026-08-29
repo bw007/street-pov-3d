@@ -14,7 +14,6 @@ export const PROP_URLS = {
   vase: `${BASE_URL}models/props/flower_vase.glb`,
   kiosk: `${BASE_URL}models/props/kiosk.glb`,
   atm: `${BASE_URL}models/props/atm_machine.glb`,
-  fur: `${BASE_URL}models/props/fur_tree.glb`,
 };
 
 const NO_RAYCAST = () => {};
@@ -73,22 +72,6 @@ export const recolorAtm = (m: THREE.MeshStandardMaterial) => {
   m.roughness = Math.max(m.roughness, 0.45);
   m.emissive.set('#aab2bc');
   m.emissiveIntensity = 0.26;
-};
-
-/** Fir tree: the GLB uses a Maya spec-gloss material that three r170 can't
- *  render (so it shows grey) — give it real colours: green foliage, brown wood. */
-export const recolorFir = (m: THREE.MeshStandardMaterial) => {
-  if (m.name === 'Branch') {
-    m.color.set('#5a3d29'); // brown trunk / branches
-    m.metalness = 0;
-    m.roughness = 0.9;
-  } else {
-    m.color.set('#2f6b32'); // green foliage
-    m.metalness = 0;
-    m.roughness = 0.9;
-    m.emissive.set('#1c3f1e');
-    m.emissiveIntensity = 0.25; // slight self-lift so the green reads (no sun)
-  }
 };
 
 /**
@@ -206,4 +189,3 @@ export const PropModel: React.FC<PropModelProps> = ({
 useGLTF.preload(PROP_URLS.vase);
 useGLTF.preload(PROP_URLS.kiosk);
 useGLTF.preload(PROP_URLS.atm);
-useGLTF.preload(PROP_URLS.fur);

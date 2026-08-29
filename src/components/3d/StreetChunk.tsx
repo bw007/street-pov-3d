@@ -11,7 +11,9 @@ import { TashkentCircus } from './TashkentCircus';
 import { TashkentCityNest } from './TashkentCityNest';
 import { TashkentTVTower } from './TashkentTVTower';
 import { PropModel, PROP_URLS, recolorKiosk, recolorAtm } from './PropModel';
+import { WalkingPerson, PEOPLE_URLS } from './WalkingPerson';
 import { InspectableObject } from '../../types';
+import { useSettingsStore } from '../../stores/useSettingsStore';
 import { ChevroletOnix } from './ChevroletOnix';
 import { SafeModel } from './ModelErrorBoundary';
 import { BusStop } from './BusStop';
@@ -66,12 +68,22 @@ const ATM_SPOTS: [number, number, number][] = [
   [11, -11, -Math.PI / 4],
 ];
 
+// Pedestrian pacing segments (offsets from the chunk centre): two along the
+// sidewalks, one crossing the road at the crosswalk by the traffic lights.
+const PED_SPOTS: { start: [number, number, number]; dir: [number, number]; length: number }[] = [
+  { start: [-8, 0, -16], dir: [0, 1], length: 32 }, // -X sidewalk, walk N–S
+  { start: [-16, 0, 8], dir: [1, 0], length: 32 }, // +Z sidewalk, walk E–W
+  { start: [-7, 0, -9], dir: [1, 0], length: 14 }, // crosswalk across the N–S road
+];
+
 export const StreetChunk: React.FC<StreetChunkProps> = ({ chunkX, chunkZ }) => {
   const worldX = chunkX * CHUNK_SIZE;
   const worldZ = chunkZ * CHUNK_SIZE;
 
   const activeChunk = useWorldStore((s) => s.activeChunk);
   const isActiveChunk = activeChunk.x === chunkX && activeChunk.z === chunkZ;
+  const quality = useSettingsStore((s) => s.quality);
+  const pedCount = quality === 'low' ? 1 : quality === 'medium' ? 2 : 3;
 
   const buildings = useMemo(() => generateChunkBuildings(chunkX, chunkZ), [chunkX, chunkZ]);
   const street = useMemo(() => getStreetByChunk(chunkX, chunkZ), [chunkX, chunkZ]);
@@ -341,6 +353,23 @@ export const StreetChunk: React.FC<StreetChunkProps> = ({ chunkX, chunkZ }) => {
               rotationY={s[2]}
               onMaterial={recolorAtm}
               inspect={ATM_INSPECT}
+            />
+          </SafeModel>
+        ))}
+
+      {/* 7c. Walking pedestrians — sidewalks + a crosswalk (skinned, animated). */}
+      {!isMonumentChunk &&
+        PED_SPOTS.slice(0, pedCount).map((p, i) => (
+          <SafeModel key={`ped-${i}`} name="Pedestrian">
+            <WalkingPerson
+              params={{
+                url: (i + chunkX + chunkZ) % 2 === 0 ? PEOPLE_URLS.human : PEOPLE_URLS.man,
+                start: [worldX + p.start[0], p.start[1], worldZ + p.start[2]],
+                dir: p.dir,
+                length: p.length,
+                speed: 1.1,
+                phase: i * 0.8,
+              }}
             />
           </SafeModel>
         ))}

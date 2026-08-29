@@ -19,6 +19,16 @@
     "size": 519256,
     "optimized": false
   },
+  "people/human_walking.glb": {
+    "hash": "0db2c28404a3c99188350445e4fc1542842040e68deda6f24d53a5a33f732b0f",
+    "size": 1794684,
+    "optimized": false
+  },
+  "people/man_walking.glb": {
+    "hash": "061c97b59ed76ecceda21ef19f78a523bf32303d7772d94ed94c1a391218bc63",
+    "size": 7444708,
+    "optimized": false
+  },
   "props/atm_machine.glb": {
     "hash": "2cec0d1182dd67452cee0c29b242cb4286b2b9db86e98074dee66156fa711cc7",
     "size": 2142980,
@@ -32,11 +42,6 @@
   "props/flower_vase.glb": {
     "hash": "db9bc4775433e2c6b9cefe120647af65918378f95792492de7bcf2d391c73b1d",
     "size": 7253036,
-    "optimized": false
-  },
-  "props/fur_tree.glb": {
-    "hash": "cf241b80eb7aa596af427a558fab0364767f1ec0d13f1a16d92bef116b09081b",
-    "size": 3598608,
     "optimized": false
   },
   "props/kiosk.glb": {

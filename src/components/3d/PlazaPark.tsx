@@ -1,7 +1,7 @@
 import React from 'react';
 import { StreetTree } from './StreetTree';
 import { StreetBench } from './StreetBench';
-import { PropModel, PROP_URLS, recolorFir } from './PropModel';
+import { WalkingPerson, PEOPLE_URLS } from './WalkingPerson';
 import { SafeModel } from './ModelErrorBoundary';
 import { InspectableObject } from '../../types';
 
@@ -34,8 +34,7 @@ const BENCH_INSPECT: InspectableObject = {
 
 const RINGS = [15, 25, 35];      // concentric ring-path radii
 const SPOKES = 8;                // radial paths
-const TREE_RADII = [20, 30];     // deciduous tree bands between the rings
-const FIR_RADIUS = 25;           // fir trees interspersed between the two bands
+const TREE_RADII = [20, 30];     // tree bands between the rings
 const TREE_HEIGHT = 9;           // bigger, majestic avenue trees (was ~5.5)
 
 /**
@@ -55,10 +54,17 @@ export const PlazaPark: React.FC<PlazaParkProps> = ({ center }) => {
     }
   });
 
-  // Fir trees on the same radial lines, between the two deciduous bands.
-  const firs: [number, number, number][] = Array.from({ length: SPOKES }, (_, i) => {
-    const a = ((i + 0.5) * Math.PI * 2) / SPOKES;
-    return [Math.cos(a) * FIR_RADIUS, 0, Math.sin(a) * FIR_RADIUS];
+  // A few people strolling the radial paths of the square (Xiyobon).
+  const walkers = [0, 3, 5, 6].map((s, i) => {
+    const a = (s * Math.PI * 2) / SPOKES;
+    return {
+      url: i % 2 === 0 ? PEOPLE_URLS.human : PEOPLE_URLS.man,
+      start: [Math.cos(a) * 13, 0, Math.sin(a) * 13] as [number, number, number],
+      dir: [Math.cos(a), Math.sin(a)] as [number, number],
+      length: 20,
+      speed: 1.1,
+      phase: i * 0.6,
+    };
   });
 
   // Benches along the inner ring, facing the centre.
@@ -107,9 +113,9 @@ export const PlazaPark: React.FC<PlazaParkProps> = ({ center }) => {
       {trees.map((p, i) => (
         <StreetTree key={`pt-${i}`} position={p} inspectData={TREE_INSPECT} physics={false} targetHeight={TREE_HEIGHT} />
       ))}
-      {firs.map((p, i) => (
-        <SafeModel key={`pf-${i}`} name="FirTree">
-          <PropModel url={PROP_URLS.fur} targetHeight={8.5} autoStand collide={false} position={p} onMaterial={recolorFir} />
+      {walkers.map((w, i) => (
+        <SafeModel key={`pw-${i}`} name="Pedestrian">
+          <WalkingPerson params={w} />
         </SafeModel>
       ))}
       {benches.map((b, i) => (
