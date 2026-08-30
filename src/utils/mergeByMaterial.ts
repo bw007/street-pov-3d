@@ -32,7 +32,45 @@ const KEEP_ATTRS = ['position', 'normal', 'uv'] as const;
 /** Built merged template per source scene — cloned per instance. */
 const TEMPLATE_CACHE = new WeakMap<THREE.Object3D, THREE.Group>();
 
-/** Keep only position/normal/uv so every geometry in a bucket shares one layout. */
+/**
+ * Re-lay an attribute as a plain, de-interleaved, un-normalized Float32
+ * BufferAttribute. mergeBufferGeometries requires every geometry in a bucket to
+ * expose each attribute with the SAME array type; source GLBs freely mix Float32
+ * with normalized-int and interleaved attributes, which is exactly what threw
+ * "BufferAttribute.array must be of consistent array types across matching
+ * attributes" (and left NaN positions in the half-merged result). getX/Y/Z/W
+ * transparently handle interleaving + normalization.
+ */
+function toFloat32(
+  attr: THREE.BufferAttribute | THREE.InterleavedBufferAttribute,
+  itemSize: number,
+): THREE.BufferAttribute {
+  // Fast path: already a plain, non-normalized Float32 attribute of the right
+  // width — leave it as-is (no per-vertex copy). Buckets still end up uniform
+  // because any mismatched sibling is converted to Float32 too.
+  const plain = attr as THREE.BufferAttribute;
+  if (
+    !(attr as { isInterleavedBufferAttribute?: boolean }).isInterleavedBufferAttribute &&
+    plain.array instanceof Float32Array &&
+    plain.itemSize === itemSize &&
+    plain.normalized === false
+  ) {
+    return plain;
+  }
+  const count = attr.count;
+  const out = new Float32Array(count * itemSize);
+  for (let i = 0; i < count; i++) {
+    const o = i * itemSize;
+    out[o] = attr.getX(i);
+    if (itemSize > 1) out[o + 1] = attr.getY(i);
+    if (itemSize > 2) out[o + 2] = attr.getZ(i);
+    if (itemSize > 3) out[o + 3] = attr.getW(i);
+  }
+  return new THREE.BufferAttribute(out, itemSize);
+}
+
+/** Keep only position/normal/uv, each re-laid as a plain Float32 attribute, so
+ *  every geometry in a bucket shares one identical layout. */
 function normalizeGeometry(geo: THREE.BufferGeometry): void {
   if (!geo.getAttribute('normal')) geo.computeVertexNormals();
   const pos = geo.getAttribute('position');
@@ -42,6 +80,13 @@ function normalizeGeometry(geo: THREE.BufferGeometry): void {
   for (const name of Object.keys(geo.attributes)) {
     if (!(KEEP_ATTRS as readonly string[]).includes(name)) geo.deleteAttribute(name);
   }
+  const p = geo.getAttribute('position');
+  const n = geo.getAttribute('normal');
+  const u = geo.getAttribute('uv');
+  if (p) geo.setAttribute('position', toFloat32(p, 3));
+  if (n) geo.setAttribute('normal', toFloat32(n, 3));
+  if (u) geo.setAttribute('uv', toFloat32(u, 2));
+  geo.morphAttributes = {};
   geo.clearGroups();
 }
 
@@ -74,8 +119,8 @@ function buildTemplate(source: THREE.Object3D): THREE.Group {
     }
 
     const g = geo.clone();
-    g.applyMatrix4(child.matrixWorld);
     normalizeGeometry(g);
+    g.applyMatrix4(child.matrixWorld);
     const list = buckets.get(single);
     if (list) {
       list.push(g);
