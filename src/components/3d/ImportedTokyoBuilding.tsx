@@ -14,6 +14,48 @@ interface TokyoBuildingProps {
 const BASE = import.meta.env?.BASE_URL || './';
 const MODEL_PATH = `${BASE.endsWith('/') ? BASE : BASE + '/'}models/building_interior/littlest_tokyo.glb`;
 
+// Merge every sub-mesh's vertex positions (in the model's fitted local frame)
+// into ONE position-only geometry, so a single Rapier convex hull can replace the
+// 71 hulls react-three-rapier would auto-derive. The GLB is split per-material, so
+// 11 of those 71 meshes each span the WHOLE model — 11 redundant, model-sized
+// convex hulls that are slow to cook and (per CLAUDE.md) a Rapier-WASM crash risk.
+// A hull only needs positions, so materials/normals/uvs are dropped. Draco decodes
+// to Float32, so no de-quantisation is needed here.
+function buildCollisionGeometry(root: THREE.Object3D): THREE.BufferGeometry | null {
+  try {
+    root.updateWorldMatrix(true, true);
+    const parts: Float32Array[] = [];
+    const v = new THREE.Vector3();
+    root.traverse((c) => {
+      if (!(c instanceof THREE.Mesh)) return;
+      const pos = c.geometry.getAttribute('position');
+      if (!pos) return;
+      const out = new Float32Array(pos.count * 3);
+      for (let i = 0; i < pos.count; i++) {
+        v.fromBufferAttribute(pos, i).applyMatrix4(c.matrixWorld);
+        out[i * 3] = v.x;
+        out[i * 3 + 1] = v.y;
+        out[i * 3 + 2] = v.z;
+      }
+      parts.push(out);
+    });
+    if (parts.length === 0) return null;
+    let total = 0;
+    for (const p of parts) total += p.length;
+    const all = new Float32Array(total);
+    let off = 0;
+    for (const p of parts) {
+      all.set(p, off);
+      off += p.length;
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(all, 3));
+    return geo;
+  } catch {
+    return null;
+  }
+}
+
 export const ImportedTokyoBuilding: React.FC<TokyoBuildingProps> = ({
   position,
   rotationY = 0,
@@ -25,7 +67,7 @@ export const ImportedTokyoBuilding: React.FC<TokyoBuildingProps> = ({
   const { scene } = useGLTF(MODEL_PATH);
 
   // Compute exact bounding box and scale to realistic multi-story architectural proportions
-  const { modelGroup, proxySize } = useMemo(() => {
+  const { modelGroup, collisionGeo, proxySize } = useMemo(() => {
     const cloned = scene.clone(true);
 
     cloned.traverse((child) => {
@@ -59,8 +101,14 @@ export const ImportedTokyoBuilding: React.FC<TokyoBuildingProps> = ({
     cloned.scale.set(autoScale, autoScale, autoScale);
     group.add(cloned);
 
+    // One merged convex hull from all geometry (see buildCollisionGeometry) —
+    // replaces the 71 auto-derived hulls. Built in the same fitted frame as the
+    // visual, so the invisible collision mesh lines up with what's drawn.
+    const collisionGeo = buildCollisionGeometry(cloned);
+
     return {
       modelGroup: group,
+      collisionGeo,
       proxySize: [size.x * autoScale, TARGET_HEIGHT, size.z * autoScale] as [number, number, number],
     };
   }, [scene]);
@@ -90,15 +138,30 @@ export const ImportedTokyoBuilding: React.FC<TokyoBuildingProps> = ({
   return (
     <group position={position} rotation={[0, rotationY, 0]}>
       {/*
-        Convex-hull collider (one hull per mesh, ~71 pieces) instead of an
-        exact trimesh — the raw model has ~142,000 triangles, which as a
-        trimesh makes Rapier's narrow-phase collision very expensive once the
-        player is close/walking on it. The dedicated stair ramp colliders
-        below stay as-is for smooth ascent/descent.
+        Collision: ONE convex hull merged from ALL of the model's geometry
+        instead of letting Rapier auto-derive 71 separate hulls. The GLB is split
+        per-material, so 11 of those 71 meshes span the ENTIRE model — 11
+        redundant, model-sized hulls, slow to cook and a Rapier-WASM crash risk
+        (see CLAUDE.md). One merged hull is the same convex shape at a fraction of
+        the cost. The 2 stair-ramp colliders below are unchanged. Falls back to
+        the old per-mesh auto-hull if the merge ever fails.
+        NOTE: this is behaviour-*approximating* — re-check that climbing the ramps
+        onto the roof still feels right; if not, `git checkout` this file.
       */}
-      <RigidBody type="fixed" colliders="hull">
-        <primitive object={modelGroup} />
-      </RigidBody>
+      {collisionGeo ? (
+        <>
+          <RigidBody type="fixed" colliders="hull">
+            <mesh geometry={collisionGeo} visible={false}>
+              <meshBasicMaterial />
+            </mesh>
+          </RigidBody>
+          <primitive object={modelGroup} />
+        </>
+      ) : (
+        <RigidBody type="fixed" colliders="hull">
+          <primitive object={modelGroup} />
+        </RigidBody>
+      )}
 
       {/* Cheap invisible box standing in for the detailed visual mesh so the
           crosshair raycaster can detect hover/click without walking the full
