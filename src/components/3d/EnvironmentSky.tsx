@@ -12,9 +12,9 @@ export const EnvironmentSky: React.FC = () => {
   const dirLightRef = useRef<THREE.DirectionalLight>(null);
   const { gl } = useThree();
 
-  // Time-of-day tone-mapping exposure — low by day so the sky doesn't blow out,
-  // higher at night so the dim scene stays visible.
-  const exposure = timeOfDay === 'night' ? 0.9 : timeOfDay === 'sunset' ? 0.78 : 0.72;
+  // Time-of-day tone-mapping exposure. Day is lifted for a brighter daylight look
+  // (kept below sky blow-out); night stays higher so the dim scene reads.
+  const exposure = timeOfDay === 'night' ? 0.9 : timeOfDay === 'sunset' ? 0.78 : 0.86;
   useEffect(() => {
     gl.toneMappingExposure = exposure;
   }, [gl, exposure]);
@@ -60,7 +60,7 @@ export const EnvironmentSky: React.FC = () => {
   let dirColor = '#eaf2ff';
   let dirIntensity = 0.0; // <- sun shine removed (was 0.5)
   let ambColor = '#cfe0f2';
-  let ambIntensity = 0.62; // brighter even daylight, makes up for the removed sun
+  let ambIntensity = 0.85; // bright, even daylight (day has no directional sun)
   let fogColor = '#c3dbf2'; // lighter haze so the horizon fades paler than the zenith
   let fogNear = 70;
   let fogFar = 320;

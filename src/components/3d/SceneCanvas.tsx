@@ -33,7 +33,7 @@ export const SceneCanvas: React.FC = () => {
       onCreated={({ gl }) => {
         // Initial daytime exposure (EnvironmentSky then keeps this in sync with
         // time-of-day). Matches the day value there so there's no first-frame flash.
-        gl.toneMappingExposure = 0.72;
+        gl.toneMappingExposure = 0.86;
       }}
       className="w-full h-full"
     >
