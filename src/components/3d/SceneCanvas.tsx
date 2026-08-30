@@ -31,14 +31,6 @@ export const SceneCanvas: React.FC = () => {
         powerPreference: 'high-performance',
       }}
       onCreated={({ gl }) => {
-        // `localClippingEnabled` is a property set on the renderer instance,
-        // not a WebGLRenderer constructor option — passing it through the
-        // `gl` prop above gets silently dropped (R3F spreads `gl` straight
-        // into `new THREE.WebGLRenderer({...})`, which only reads its own
-        // known constructor keys). Bibi Khanym relies on a per-material
-        // clipping plane to hide raw scan terrain baked into its geometry
-        // (see UzbekBibiKhanym.tsx), which needs this actually turned on.
-        gl.localClippingEnabled = true;
         // Initial daytime exposure (EnvironmentSky then keeps this in sync with
         // time-of-day). Matches the day value there so there's no first-frame flash.
         gl.toneMappingExposure = 0.72;

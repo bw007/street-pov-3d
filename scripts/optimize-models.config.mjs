@@ -53,6 +53,23 @@ const config = {
   },
 
   /**
+   * Geometry decimation (meshopt simplifier). OFF by default — it removes
+   * triangles, so enable it PER MODEL and eyeball the result. `ratio` is the
+   * target fraction of triangles to KEEP; `error` (as a fraction of the model's
+   * size) is the hard quality guard that stops decimation before the silhouette
+   * visibly degrades — so a low `ratio` never over-simplifies, it just stops
+   * early. This is the only step that cuts the runtime triangle load (meshopt
+   * compression only shrinks download/parse, not GPU cost).
+   */
+  simplify: {
+    enabled: false,
+    ratio: 1,
+    error: 0.001,
+    /** Keep open-boundary edges pinned (helps flat/cut-open meshes hold shape). */
+    lockBorder: false,
+  },
+
+  /**
    * Advanced structural transforms. All OFF by default because they can rename,
    * merge, or drop scene nodes — only enable for models you have verified.
    */
@@ -74,16 +91,64 @@ const config = {
    *   }
    */
   overrides: {
-    // Traffic cars are seen at a distance and rendered many at once — cap their
-    // (large) textures harder to save VRAM and download. To also cut their
-    // triangle count, decimate them in Blender or enable a simplify step here.
-    'vehicles/chevrolet_cobalt_ltz.glb': { texture: { maxSize: 1024 } },
-    'vehicles/kia_k5_2025.glb': { texture: { maxSize: 1024 } },
-    'vehicles/gentra.glb': { texture: { maxSize: 1024 } },
-    'vehicles/spark.glb': { texture: { maxSize: 1024 } },
-    'vehicles/bus_maz_203.glb': { texture: { maxSize: 1024 } },
-    // Amir Temur statue is a large centrepiece — cap its (very large) textures.
-    'uzbek/amir_temur_statue.glb': { texture: { maxSize: 2048 } },
+    // Traffic cars: 0.3–1.05M raw tris and 60–155 sub-meshes EACH, several on
+    // screen at once — the dominant runtime cost. They're background props, so
+    // merge hard (flatten+join → ~one mesh per material) AND halve the triangles
+    // (simplify). No node names are used by VehicleMesh, so this is safe.
+    // Tune `ratio` down (e.g. 0.3) once verified — 0.5 is a conservative start.
+    'vehicles/chevrolet_cobalt_ltz.glb': {
+      texture: { maxSize: 1024 },
+      advanced: { weld: true, flatten: true, join: true, prune: true },
+      simplify: { enabled: true, ratio: 0.5, error: 0.01 },
+    },
+    'vehicles/kia_k5_2025.glb': {
+      texture: { maxSize: 1024 },
+      advanced: { weld: true, flatten: true, join: true, prune: true },
+      simplify: { enabled: true, ratio: 0.5, error: 0.01 },
+    },
+    'vehicles/gentra.glb': {
+      texture: { maxSize: 1024 },
+      advanced: { weld: true, flatten: true, join: true, prune: true },
+      simplify: { enabled: true, ratio: 0.5, error: 0.01 },
+    },
+    'vehicles/spark.glb': {
+      texture: { maxSize: 1024 },
+      advanced: { weld: true, flatten: true, join: true, prune: true },
+      simplify: { enabled: true, ratio: 0.5, error: 0.01 },
+    },
+    'vehicles/bus_maz_203.glb': {
+      texture: { maxSize: 1024 },
+      advanced: { weld: true, flatten: true, join: true, prune: true },
+      simplify: { enabled: true, ratio: 0.5, error: 0.01 },
+    },
+    // Chevrolet Onix: the showcase "hero" on the spawn plaza — 574k tris across
+    // 442 sub-meshes / 1266 nodes. Seen up close, so decimate gently (keep 60%,
+    // tight error) but still collapse the 442 meshes → ~8 draw calls.
+    'vehicles/chevrolet_onix_2024.glb': {
+      texture: { maxSize: 2048 },
+      advanced: { weld: true, flatten: true, join: true, prune: true },
+      simplify: { enabled: true, ratio: 0.6, error: 0.005 },
+    },
+    // Tashkent circus: only ~4.6k tris but authored as 1,273 separate primitives
+    // (1,273 draw calls!) sharing 2 materials. Pure draw-call bomb — join it to
+    // ~2 meshes. No simplify needed (already low-poly). No node names used.
+    'uzbek/tashkent_sirk.glb': {
+      advanced: { weld: true, flatten: true, join: true, prune: true },
+    },
+    // Amir Temur statue is a large centrepiece — cap its (very large) textures and
+    // gently halve its 1.48M tris (tight error to protect the silhouette). Left
+    // un-joined (only ~15 meshes) to stay conservative on the hero monument.
+    'uzbek/amir_temur_statue.glb': {
+      texture: { maxSize: 2048 },
+      advanced: { weld: true, prune: true },
+      simplify: { enabled: true, ratio: 0.5, error: 0.004 },
+    },
+    // Bus stop shelter: 29 sub-meshes sharing ~9 materials, rendered twice per
+    // chunk. Only ~7.8k tris (no simplify needed) but a draw-call sink — join it
+    // to ~9 meshes. BusStop.tsx uses no node names, so this is safe.
+    'props/bus_stop.glb': {
+      advanced: { weld: true, flatten: true, join: true, prune: true },
+    },
     // Uzbekistan Airways plane: a Sketchfab import with ~378 sub-meshes / 833
     // nodes. It flies decoratively (no collider / POI / anchor nodes, no
     // animation), several copies at once, so merge it hard — flatten + join

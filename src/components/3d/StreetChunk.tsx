@@ -32,7 +32,7 @@ interface StreetChunkProps {
 }
 
 // "Home" hero car. The player spawns at world (0, -35) facing -Z (away from the
-// Bibi Khanym monument, which is behind them at the plaza centre — see
+// Amir Temur monument, which is behind them at the plaza centre — see
 // PlayerController). The Chevrolet Onix is parked ~10 m dead ahead in the
 // northbound lane just south of the plaza, so it's the first real 3D vehicle in
 // view the moment the world loads. Numbers are world-space; tweak to taste

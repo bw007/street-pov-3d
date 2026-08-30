@@ -118,11 +118,11 @@ async function createOptimizer() {
 
   const { NodeIO } = core;
   const { ALL_EXTENSIONS } = extensions;
-  const { dedup, resample, prune, weld, flatten, join: joinMeshes, textureCompress, meshopt } = functions;
-  const { MeshoptEncoder, MeshoptDecoder } = meshoptimizer;
+  const { dedup, resample, prune, weld, flatten, join: joinMeshes, textureCompress, meshopt, simplify } = functions;
+  const { MeshoptEncoder, MeshoptDecoder, MeshoptSimplifier } = meshoptimizer;
   const sharp = sharpMod.default ?? sharpMod;
 
-  await Promise.all([MeshoptEncoder.ready, MeshoptDecoder.ready]);
+  await Promise.all([MeshoptEncoder.ready, MeshoptDecoder.ready, MeshoptSimplifier.ready]);
 
   const io = new NodeIO().registerExtensions(ALL_EXTENSIONS).registerDependencies({
     'meshopt.decoder': MeshoptDecoder,
@@ -133,11 +133,24 @@ async function createOptimizer() {
   return async function optimize(srcPath, outPath, cfg) {
     const doc = await io.read(srcPath);
 
+    // Order matters: flatten/join merge geometry first, THEN weld + simplify
+    // decimate the merged result (meshopt's simplifier needs welded geometry),
+    // then resample/prune clean up — glTF-Transform's recommended pipeline.
     const transforms = [];
     if (cfg.advanced.dedup) transforms.push(dedup());
-    if (cfg.advanced.weld) transforms.push(weld());
     if (cfg.advanced.flatten) transforms.push(flatten());
     if (cfg.advanced.join) transforms.push(joinMeshes());
+    if (cfg.advanced.weld) transforms.push(weld());
+    if (cfg.simplify?.enabled) {
+      transforms.push(
+        simplify({
+          simplifier: MeshoptSimplifier,
+          ratio: cfg.simplify.ratio ?? 1,
+          error: cfg.simplify.error ?? 0.001,
+          lockBorder: cfg.simplify.lockBorder ?? false,
+        }),
+      );
+    }
     if (cfg.advanced.resample) transforms.push(resample());
     if (cfg.advanced.prune) transforms.push(prune({ keepLeaves: true }));
     if (cfg.texture.format) {
@@ -198,7 +211,7 @@ async function main() {
     srcTotal += srcSize;
 
     // Cache key = source content + the settings that affect its output.
-    const settingsKey = JSON.stringify({ t: cfg.texture, m: cfg.meshopt, a: cfg.advanced });
+    const settingsKey = JSON.stringify({ t: cfg.texture, m: cfg.meshopt, a: cfg.advanced, s: cfg.simplify });
     const hash = createHash('sha256').update(bytes).update(settingsKey).digest('hex');
 
     // Already compressed with these exact settings and the output is present →

@@ -1,156 +1,151 @@
 {
   "aircraft/uzbekistan_airways.glb": {
-    "hash": "6c6891207bceba20d32ef9fe78d104591ab5021ecbe3b615ee5f3be85ad4a129",
+    "hash": "3f1339a0af625bbc97de11cbc09ad0ba214ff32ed50ce4d5d718967ec3bc17a2",
     "size": 1758584,
     "optimized": false
   },
   "building_interior/interior_building.glb": {
-    "hash": "cdf7ec7a0ecd3946dec297ecf5b610a420f693f9b798f3166a2beabdd0e888eb",
+    "hash": "72584220e915a2994b5424452e81bc4076b826f2e2edd78cf3d4140a8ae9d5d9",
     "size": 94556,
     "optimized": false
   },
   "building_interior/littlest_tokyo.glb": {
-    "hash": "356213e959d08ca56c702b1a7ae315751819c5f252bfafbc8e17a41dcbc43856",
+    "hash": "2d8d07a42f2c4fc23b305fd574272c645a40f930f1dd731a0bf652855f341b05",
     "size": 4133072,
     "optimized": false
   },
   "fauna/seagull.glb": {
-    "hash": "e7ceb8723c35ec11928262a824b98f0972a5b20bbc907f5514320080ab7c8a38",
+    "hash": "8ef25c4d59c5efde4a422d39a0959b8f8ad5bd1240fa72fda7ebdb560a89f8b7",
     "size": 519256,
     "optimized": false
   },
   "people/human_walking.glb": {
-    "hash": "0db2c28404a3c99188350445e4fc1542842040e68deda6f24d53a5a33f732b0f",
+    "hash": "5a7a8b0a744eb6125492841afba8c0a8e3b5ffd657f17416c577a26d1b860296",
     "size": 1794684,
     "optimized": false
   },
   "people/man_walking.glb": {
-    "hash": "061c97b59ed76ecceda21ef19f78a523bf32303d7772d94ed94c1a391218bc63",
+    "hash": "9e998fd725524d9e6318109ccf1c928ec4c98126db0387fda08d8eaf0e6a08ab",
     "size": 7444708,
     "optimized": false
   },
   "props/atm_machine.glb": {
-    "hash": "2cec0d1182dd67452cee0c29b242cb4286b2b9db86e98074dee66156fa711cc7",
+    "hash": "fe87cd38d95080d4531ae19e7a6ba22fc9256dd04a18b877ed8b00abb27fe75e",
     "size": 2142980,
     "optimized": false
   },
   "props/bus_stop.glb": {
-    "hash": "e7677ab59cd65f3d80d4c9af45da971b7d1e660f7ce056f934ba2ebbc4970b35",
+    "hash": "d4495e2bbf67e3e470a0090709a5e6f5eb380971484de3041b6160fdc9463217",
     "size": 916344,
     "optimized": false
   },
   "props/door_door_metal.glb": {
-    "hash": "b409b372750dacb6e991db5b2529e65bd434072dcfc5f813a18dd361f79e7717",
+    "hash": "a2e12bed42d37dde243e1220cdbd9b47e7eb77f024bf977b991d73c8556db1b0",
     "size": 806420,
     "optimized": false
   },
   "props/eud_stand_panel.glb": {
-    "hash": "77f971f172b2c1d222caa8fa503bd1c50f6d38ab74e0cd247551fb1578b234fa",
+    "hash": "da552af548d05d69740c0c0d484f6d45f91f7366794998c7804954cd63dc9030",
     "size": 1930916,
     "optimized": false
   },
   "props/flower_vase.glb": {
-    "hash": "db9bc4775433e2c6b9cefe120647af65918378f95792492de7bcf2d391c73b1d",
+    "hash": "d6df9f3c8ad7c4a1c697a10eb09b4a2d3e5c5bddeb0f3b467ab0414b75632b6a",
     "size": 7253036,
     "optimized": false
   },
   "props/hospital_door.glb": {
-    "hash": "5adce041194f3cbd0d9b9c8428572e20a18074299ee705e304e65c329d0df757",
+    "hash": "2e5bb8ce5220d0dfb8b07e93cb7a102d482cb1afaa142c15b24b84aa0519d6b8",
     "size": 49564,
     "optimized": false
   },
   "props/kiosk.glb": {
-    "hash": "2f8d126312b1fc809bc1c2d198a4d1d64f78e28daf8cec29a055d5cb8d35d7ae",
+    "hash": "7ef2ca77e01765d0ad9462805f4f70647d9e8fe26784cc3ed5f67303c2959950",
     "size": 125224,
     "optimized": false
   },
   "props/modern_bench_1.glb": {
-    "hash": "b9c7d1f0333f9d07d9434903abc1de0f13b4a79e98938af33ce04a4296c37863",
+    "hash": "b08fabad9ffeb11e7e707576e21968550edd99721de157e7984304595c5501a8",
     "size": 2804396,
     "optimized": false
   },
   "props/modern_bench_2.glb": {
-    "hash": "07aa9a9ae3428d9da9b986b44705f78d5a1b7fbf8de7361eb6ce4bb201fb2094",
+    "hash": "205719ec668c26f2d3daa516fbee32f8154e3f88f7b88d67dcbddadb0c5f1379",
     "size": 1788576,
     "optimized": false
   },
   "props/street_tree.glb": {
-    "hash": "9bb02737d2afd63ae2e232652c2f8c4c86cebdaf0367213bee495482a90724ec",
+    "hash": "c3f7323c45a547fbb4d0c3dea967a3a8bcb3759a557735ac201541cad18c67e7",
     "size": 2653080,
     "optimized": false
   },
   "props/vending_machine.glb": {
-    "hash": "e22d487b2da17259adcf973c937e2bb7f76dd5b544a5af41b6609c52e112e433",
+    "hash": "c770f3307b5fd34d644a861a01f867fdf83decf9d74cd980d6555ac6d50e5dc0",
     "size": 293084,
     "optimized": false
   },
   "uzbek/amir_temur_statue.glb": {
-    "hash": "ee00b7883486c72234572a06c717d882cc4e9a50e9bee3709a70bf061ba2d16b",
+    "hash": "f24e3ee19d95c318cbe9cf95c8b73c87a7e19d3b995bf91fb139a18511b04e33",
     "size": 56349060,
     "optimized": false
   },
-  "uzbek/bibi_khanym.glb": {
-    "hash": "fad8c811bc5a17d9956c098696571a8e62398fef90ca86572722818169c71206",
-    "size": 15228028,
-    "optimized": false
-  },
   "uzbek/oliy_majlis_binosi.glb": {
-    "hash": "40bbf574ed8051b46306572cb639743a5e5aa63f1f3a6dda812fee87b365501b",
+    "hash": "6f33687ad7e1782ef4ef2052dc2344141aaf4e50a78ff3dc3d56e59703ff346c",
     "size": 444868,
     "optimized": false
   },
   "uzbek/tashkent_city_nest_one.glb": {
-    "hash": "7a27cb12553d1baa86ce58b6eec0ccb0e8f02df5201fe01e3135e20c33e5e6f8",
+    "hash": "9e747afdc86179e86eebf474040f2b3ae0d4adf2e3c8061519bef9e1b767fdf2",
     "size": 3644252,
     "optimized": false
   },
   "uzbek/tashkent_sirk.glb": {
-    "hash": "5fca16af9f9d7d2f028598b500ab4e5dfff276165571d8b555a00e4327cc1e5f",
+    "hash": "ef69f85fd47a98e0aab855603d89abd22d2b4164f7d780649ba3f19cc82aaf16",
     "size": 1516608,
     "optimized": false
   },
   "uzbek/tashkent_tv_tower.glb": {
-    "hash": "e5048d42fed92e2f8fea9d0f3864d0b6f525bbe42e880da2e9a1037911e03403",
+    "hash": "acfa94796068d05887bb43138bc9b69bdf5e8c92ebcba57dc7680d49fd21966a",
     "size": 3053344,
     "optimized": false
   },
   "vehicles/bus_maz_203.glb": {
-    "hash": "27d53b576432d67d3d02b4d68ae209ef50cca63e7eca48bf6805e0191202b44d",
+    "hash": "6be9907c500a6ab1ed9698a2a32463f549ea32b958afe554ed9a2efb657931ae",
     "size": 17257096,
     "optimized": false
   },
   "vehicles/chevrolet_cobalt_ltz.glb": {
-    "hash": "9e009b62d4b2f3a5c6c66a0c8ff19fc18302da6ed040d55582b5dcfb0e26a4d4",
+    "hash": "f9246596e2938c19c017abac5ea7c4f9c2d30b62dddb9c6c60038da321aa52a5",
     "size": 32109420,
     "optimized": false
   },
   "vehicles/chevrolet_onix_2024.glb": {
-    "hash": "0800a32d39fed3c9437522e58d91ae129b9a05b2c857be34755316943bb1974a",
+    "hash": "387c985d7636bb0b2e3b8aef5b9275e5361783b8e8eba9880fe8e1a1761cd0de",
     "size": 21699088,
     "optimized": false
   },
   "vehicles/gentra.glb": {
-    "hash": "36fc0d6ce35303862db1ea79b6919ca512c863be575d22fdff1ad97a34e7d1c5",
+    "hash": "35aa83b987e20192865781063215beda6895e31f7d16b336b652c08c185f4e47",
     "size": 19497792,
     "optimized": false
   },
   "vehicles/kia_k5_2025.glb": {
-    "hash": "b3ae01dd088b2a9ce8be267a58d63047b767166f4351fb444aba7af5465cfdfe",
+    "hash": "eeee07078194804ce26ceffb11c6b853b8a70b4c9926f308e54848cf2c007618",
     "size": 15298592,
     "optimized": false
   },
   "vehicles/spark.glb": {
-    "hash": "a3c197d1ce4f40ee63e80a5983e8d981f01f4d2dd6474662a07266f87fa06627",
+    "hash": "9769d006859b45dd6a0fbf66f8d17a16b7d1d6b50a5962d43d4e84f345759fc5",
     "size": 29154572,
     "optimized": false
   },
   "vehicles/sports_car.glb": {
-    "hash": "cc86d7594abfd3e1901ebc426d2c52ff7f69cc7e50544ca968acdcd18f26d472",
+    "hash": "a6226c86fbf8711602fc15aee2b66017440207e36777e9ed6f5fe8e1f0b6b31a",
     "size": 1681572,
     "optimized": false
   },
   "vehicles/truck.glb": {
-    "hash": "0ade84a3d4c00fe24ef5463751482d646c322f472e02753bf23b4c5d7033a049",
+    "hash": "8f243ce509f71af9e5b8a0b348f05e38acdbe2fb0d249b0013549e9f3e1242a4",
     "size": 369980,
     "optimized": false
   }

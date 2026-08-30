@@ -8,6 +8,14 @@ import { useSettingsStore } from '../../stores/useSettingsStore';
 import { soundManager } from '../../audio/SoundManager';
 import { lerp } from '../../utils/math';
 
+// Frame-loop scratch vectors — reused every frame so the movement math allocates
+// nothing (was 4 new THREE.Vector3 per frame → ~240/s of GC pressure). Safe as
+// module scope: there is a single PlayerController and the loop is synchronous.
+const UP = new THREE.Vector3(0, 1, 0);
+const _forward = new THREE.Vector3();
+const _right = new THREE.Vector3();
+const _move = new THREE.Vector3();
+
 export const PlayerController: React.FC = () => {
   const rbRef = useRef<RapierRigidBody>(null);
   const { camera } = useThree();
@@ -152,18 +160,19 @@ export const PlayerController: React.FC = () => {
     // 4. Movement Calculation relative to Camera Yaw
     const { forward, backward, left, right, sprint, jump, joystickVector } = useControlsStore.getState();
 
-    const forwardVec = new THREE.Vector3();
+    const forwardVec = _forward;
     camera.getWorldDirection(forwardVec);
     forwardVec.y = 0;
     forwardVec.normalize();
 
-    const rightVec = new THREE.Vector3();
-    rightVec.crossVectors(forwardVec, new THREE.Vector3(0, 1, 0)).normalize();
+    const rightVec = _right;
+    rightVec.crossVectors(forwardVec, UP).normalize();
 
     const moveForward = (forward ? 1 : 0) - (backward ? 1 : 0) + joystickVector.y;
     const moveStrafe = (right ? 1 : 0) - (left ? 1 : 0) + joystickVector.x;
 
-    const moveDirection = new THREE.Vector3()
+    const moveDirection = _move
+      .set(0, 0, 0)
       .addScaledVector(forwardVec, moveForward)
       .addScaledVector(rightVec, moveStrafe);
 
@@ -227,12 +236,10 @@ export const PlayerController: React.FC = () => {
       mass={80}
       type="dynamic"
       ccd={true}
-      // Chunk (0,0) is now Bibi Khanym's dedicated plaza, centered exactly at
-      // world (0,0) — spawning the player there put the camera inside the
-      // monument's own geometry (which is what actually looked like broken/
-      // floating architecture in every screenshot, not a positioning bug in
-      // the model itself). Spawn at the plaza's edge instead, clear of the
-      // monument's ~30m footprint, so the player walks up to it from outside.
+      // Chunk (0,0) is Amir Temur's dedicated plaza, centred at world (0,0);
+      // spawning the player dead-centre would put the camera inside the
+      // monument's geometry. Spawn at the plaza's edge instead, clear of its
+      // ~30m footprint, so the player walks up to it from outside.
       position={[0, 1.15, -35]}
       enabledRotations={[false, false, false]}
       friction={0.0}

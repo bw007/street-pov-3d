@@ -209,11 +209,13 @@ export const UzbekOliyMajlis: React.FC<OliyMajlisProps> = ({
   return (
     <group position={position} rotation={[0, rotationY, 0]}>
       {/*
-        Convex-hull collider (one hull per mesh) instead of an exact trimesh —
-        the raw model has ~117,000 triangles, which as a trimesh makes Rapier's
-        narrow-phase collision very expensive once the player gets close.
+        Cuboid colliders (one AABB per mesh) instead of a convex hull. The model
+        is ~117k tris and NOT walkable, so a few boxes block the player just as
+        well — while avoiding hull cooking, which is expensive and can crash
+        Rapier's WASM on a detailed mesh. Matches the other monuments (Amir Temur,
+        City Nest, Circus), which are all cuboid.
       */}
-      <RigidBody type="fixed" colliders="hull">
+      <RigidBody type="fixed" colliders="cuboid">
         <primitive object={modelGroup} />
       </RigidBody>
 

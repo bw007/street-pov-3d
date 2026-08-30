@@ -9,6 +9,7 @@ export const InteractionRaycaster: React.FC = () => {
   const { camera, scene } = useThree();
   const raycaster = useRef(new THREE.Raycaster());
   const centerCoord = useRef(new THREE.Vector2(0, 0)); // Center of screen (crosshair)
+  const rayAccum = useRef(0); // seconds since the last crosshair raycast (throttle)
 
   const setHoveredObject = useWorldStore((s) => s.setHoveredObject);
   const setInspectedObject = useWorldStore((s) => s.setInspectedObject);
@@ -50,9 +51,15 @@ export const InteractionRaycaster: React.FC = () => {
     };
   }, [setInspectedObject]);
 
-  // Frame-by-frame center crosshair raycasting
-  useFrame(() => {
+  // Center-crosshair raycasting, throttled to ~15 Hz: walking the whole scene
+  // graph (intersectObjects(scene.children, true)) + allocating the hit array
+  // every frame is wasteful for a hover check, and 15 Hz still feels instant
+  // (~75% less CPU on this path).
+  useFrame((_, delta) => {
     if (!camera || !scene) return;
+    rayAccum.current += delta;
+    if (rayAccum.current < 1 / 15) return;
+    rayAccum.current = 0;
 
     // Raycast from camera center
     raycaster.current.setFromCamera(centerCoord.current, camera);

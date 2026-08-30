@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import * as THREE from 'three';
 import { Instances, Instance } from '@react-three/drei';
-import { RigidBody } from '@react-three/rapier';
+import { RigidBody, CuboidCollider } from '@react-three/rapier';
 import { BuildingData, InspectableObject } from '../../types';
 import { useWorldStore } from '../../stores/useWorldStore';
 import { soundManager } from '../../audio/SoundManager';
@@ -148,7 +148,14 @@ export const BuildingMesh: React.FC<BuildingMeshProps> = ({ building }) => {
   };
 
   return (
-    <RigidBody type="fixed" colliders="cuboid" position={position}>
+    <RigidBody type="fixed" colliders={false} position={position}>
+      {/* ONE explicit body collider instead of letting Rapier auto-derive a
+          cuboid from every descendant mesh — body + parapet + rooftop + storefront
+          + AC units + BOTH window <Instances> (one collider per window instance →
+          dozens per building) — all re-registered on every chunk stream. The body
+          box is all the player can actually touch; the rest is above head height
+          or flush to the wall. */}
+      <CuboidCollider args={[width / 2, height / 2, depth / 2]} />
       <group
         userData={{ inspectData }}
         onClick={handleInspect}

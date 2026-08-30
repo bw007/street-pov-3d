@@ -4,7 +4,7 @@ import { useWorldStore } from '../../stores/useWorldStore';
 import { soundManager } from '../../audio/SoundManager';
 import { CHUNK_SIZE } from '../../data/streetsData';
 import { InspectableObject } from '../../types';
-import { StreetTree } from './StreetTree';
+import { InstancedStreetTrees } from './InstancedStreetTrees';
 import { StreetBench, BENCH_MODELS } from './StreetBench';
 
 interface PropsMeshProps {
@@ -197,7 +197,7 @@ export const PropsMesh: React.FC<PropsMeshProps> = ({ chunkX, chunkZ, isActiveCh
 
         {/* Tree trunks — a plain cylinder standing in for each tree's
             collider instead of letting Rapier derive one from the real GLTF
-            foliage geometry (StreetTree renders with physics={false} below).
+            foliage geometry (the trees render without their own physics below).
             With a couple dozen trees per chunk, deriving colliders from
             actual mesh geometry on every mount was the main source of the
             stutter when a new chunk streamed in. */}
@@ -288,9 +288,10 @@ export const PropsMesh: React.FC<PropsMeshProps> = ({ chunkX, chunkZ, isActiveCh
       ))}
 
 
-      {visibleTreePositions.map((pos, idx) => (
-        <StreetTree key={`tree-${idx}`} position={pos} inspectData={treeData} physics={false} />
-      ))}
+      {/* All of this chunk's street trees as ~2 instanced draw calls (see
+          InstancedStreetTrees) instead of 24 separate GLB clones (~48 draw
+          calls). Their colliders stay in the shared RigidBody above. */}
+      <InstancedStreetTrees positions={visibleTreePositions} inspectData={treeData} />
 
       {visibleBenches.map((b, idx) => (
         <StreetBench

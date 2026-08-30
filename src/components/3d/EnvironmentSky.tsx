@@ -8,7 +8,6 @@ import { useSettingsStore } from '../../stores/useSettingsStore';
 export const EnvironmentSky: React.FC = () => {
   const timeOfDay = useWorldStore((s) => s.timeOfDay);
   const shadows = useSettingsStore((s) => s.shadows);
-  const playerPosition = useWorldStore((s) => s.playerPosition);
 
   const dirLightRef = useRef<THREE.DirectionalLight>(null);
   const { gl } = useThree();
@@ -25,6 +24,10 @@ export const EnvironmentSky: React.FC = () => {
   // below), so there's nothing to steer then — skip the per-frame work.
   useFrame(() => {
     if (dirLightRef.current && timeOfDay !== 'day') {
+      // Read the player position WITHOUT subscribing — subscribing re-rendered
+      // the whole sky/fog/light subtree 60x/s (PlayerController writes this every
+      // frame). timeOfDay/shadows still drive re-renders, which is correct.
+      const playerPosition = useWorldStore.getState().playerPosition;
       dirLightRef.current.position.set(
         playerPosition[0] + (timeOfDay === 'sunset' ? 40 : 30),
         timeOfDay === 'night' ? 20 : 60,
