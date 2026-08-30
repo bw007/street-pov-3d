@@ -7,6 +7,7 @@ import { soundManager } from '../../audio/SoundManager';
 import { InspectableObject } from '../../types';
 import { CHUNK_SIZE } from '../../data/streetsData';
 import { getIntersectionSignal, groupForAxis } from '../../utils/trafficSignal';
+import { mergeByMaterial } from '../../utils/mergeByMaterial';
 
 const BASE = import.meta.env?.BASE_URL || './';
 const BASE_URL = BASE.endsWith('/') ? BASE : BASE + '/';
@@ -79,10 +80,16 @@ export const VehicleMesh: React.FC<VehicleProps> = ({
   const { scene } = useGLTF(model.path);
 
   const { modelGroup, colliderSize } = useMemo(() => {
-    const cloned = scene.clone(true);
+    // Merge the raw Sketchfab car (62–155 sub-meshes) down to ~one mesh per
+    // material — same look, ~10 draw calls instead of 155. Behaviour-preserving;
+    // <SafeModel> still guards it if a model ever fails to merge.
+    const cloned = mergeByMaterial(scene);
     cloned.traverse((child) => {
       if (child instanceof THREE.Mesh) {
-        child.castShadow = true;
+        // Small, fast-moving background traffic: skip the shadow-CASTING pass
+        // (it only runs at sunset) to save the shadow-map redraw with ~30-50
+        // cars on screen. Still RECEIVES shadows so it stays visually grounded.
+        child.castShadow = false;
         child.receiveShadow = true;
         child.raycast = () => {}; // let the invisible proxy handle the crosshair
       }

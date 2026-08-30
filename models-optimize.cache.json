@@ -39,9 +39,24 @@
     "size": 916344,
     "optimized": false
   },
+  "props/door_door_metal.glb": {
+    "hash": "b409b372750dacb6e991db5b2529e65bd434072dcfc5f813a18dd361f79e7717",
+    "size": 806420,
+    "optimized": false
+  },
+  "props/eud_stand_panel.glb": {
+    "hash": "77f971f172b2c1d222caa8fa503bd1c50f6d38ab74e0cd247551fb1578b234fa",
+    "size": 1930916,
+    "optimized": false
+  },
   "props/flower_vase.glb": {
     "hash": "db9bc4775433e2c6b9cefe120647af65918378f95792492de7bcf2d391c73b1d",
     "size": 7253036,
+    "optimized": false
+  },
+  "props/hospital_door.glb": {
+    "hash": "5adce041194f3cbd0d9b9c8428572e20a18074299ee705e304e65c329d0df757",
+    "size": 49564,
     "optimized": false
   },
   "props/kiosk.glb": {
@@ -62,6 +77,11 @@
   "props/street_tree.glb": {
     "hash": "9bb02737d2afd63ae2e232652c2f8c4c86cebdaf0367213bee495482a90724ec",
     "size": 2653080,
+    "optimized": false
+  },
+  "props/vending_machine.glb": {
+    "hash": "e22d487b2da17259adcf973c937e2bb7f76dd5b544a5af41b6609c52e112e433",
+    "size": 293084,
     "optimized": false
   },
   "uzbek/amir_temur_statue.glb": {

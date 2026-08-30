@@ -20,6 +20,7 @@ import { BusStop } from './BusStop';
 import { PlazaPark } from './PlazaPark';
 import { TrafficLight } from './TrafficLight';
 import { HighwaySign } from './HighwaySign';
+import { LedBillboard, AD_MODES } from './LedBillboard';
 import { generateChunkBuildings } from '../../data/mockBuildings';
 import { getStreetByChunk, CHUNK_SIZE } from '../../data/streetsData';
 import { getLandmarkByChunk } from '../../data/landmarks';
@@ -67,6 +68,32 @@ const ATM_SPOTS: [number, number, number][] = [
   [-11, -11, Math.PI / 4],
   [11, -11, -Math.PI / 4],
 ];
+
+// Clickable vending machine tucked behind every building. The model's glass
+// front is its −X face, so rotationY = −π/2 turns it to face −Z (outward, away
+// from the wall it stands against).
+const VENDING_INSPECT: InspectableObject = {
+  id: 'vending_machine',
+  title: 'Sotuv Avtomati (Vending Machine)',
+  category: 'infrastructure',
+  badge: 'XIZMAT',
+  description: "Ichimlik va gazak sotuvchi avtomat — bino ortida, 24/7 ishlaydi.",
+  details: [
+    { label: 'Turi', value: 'Sotuv avtomati' },
+    { label: 'Ish vaqti', value: '24/7' },
+  ],
+};
+
+// Real 3D entrance doors replacing the flat storefront plane: a hospital-style
+// sliding door at the front (+Z storefront) and a metal door at the back (−Z).
+const DOOR_INSPECT: InspectableObject = {
+  id: 'building_door',
+  title: 'Bino Kirish Eshigi',
+  category: 'building',
+  badge: 'KIRISH',
+  description: 'Binoning kirish eshigi.',
+  details: [{ label: 'Turi', value: 'Kirish eshigi' }],
+};
 
 // Pedestrian pacing segments (offsets from the chunk centre): two along the
 // sidewalks, one crossing the road at the crosswalk by the traffic lights.
@@ -285,8 +312,77 @@ export const StreetChunk: React.FC<StreetChunkProps> = ({ chunkX, chunkZ }) => {
         </SafeModel>
       )}
 
+      {/* Per-building extras. The storefront/windows are on the +Z face (see
+          BuildingMesh); −Z is the plain back.
+          • Front entrance: hospital-style sliding door on the +Z storefront.
+          • Back door: metal door on the −Z wall.
+          • Vending machine: against the −Z back wall, shifted off-centre so it
+            clears the back door, glass front turned outward.
+          Doors are auto-stood, entrance-scaled and non-colliding (the building
+          box already blocks the player). If a door faces into the wall, flip its
+          rotationY by Math.PI. */}
+      {!isMonumentChunk &&
+        buildings.map((b) => {
+          const [bx, , bz] = b.position;
+          const bWidth = b.size[0];
+          const depth = b.size[2];
+          return (
+            <group key={`bx-${b.id}`}>
+              <SafeModel name="BuildingDoorFront">
+                <PropModel
+                  url={PROP_URLS.hospitalDoor}
+                  targetHeight={3.0}
+                  autoStand
+                  collide={false}
+                  position={[bx, 0, bz + depth / 2 + 0.12]}
+                  rotationY={0}
+                  inspect={DOOR_INSPECT}
+                />
+              </SafeModel>
+              <SafeModel name="BuildingDoorBack">
+                <PropModel
+                  url={PROP_URLS.metalDoor}
+                  targetHeight={2.7}
+                  autoStand
+                  collide={false}
+                  position={[bx, 0, bz - depth / 2 - 0.12]}
+                  rotationY={Math.PI}
+                  inspect={DOOR_INSPECT}
+                />
+              </SafeModel>
+              <SafeModel name="VendingMachine">
+                <PropModel
+                  url={PROP_URLS.vending}
+                  targetHeight={1.9}
+                  // Flush to the back wall (building box already blocks the
+                  // player), like the doors — no collider, so a full 3x3 window
+                  // doesn't register ~36 extra fixed RigidBodies on every stream.
+                  collide={false}
+                  position={[bx + bWidth * 0.3, 0, bz - depth / 2 - 0.9]}
+                  rotationY={-Math.PI / 2}
+                  inspect={VENDING_INSPECT}
+                />
+              </SafeModel>
+            </group>
+          );
+        })}
+
       {/* 3. Street Props: Lamps, Bus Stops, Trees, Benches */}
       <PropsMesh chunkX={chunkX} chunkZ={chunkZ} streetName={street?.name} isActiveChunk={isActiveChunk} excludeQuadrants={clearedQuadrants} />
+
+      {/* 3b. Outdoor LED advertising billboard at every ordinary street crossing
+          (skipped on monument plaza chunks). Stands on the NW corner past the
+          traffic lights, screen angled back at the intersection; the ad creative
+          cycles by chunk so neighbours differ. */}
+      {!isMonumentChunk && (
+        <SafeModel name="LedBillboard">
+          <LedBillboard
+            position={[worldX - 13, 0, worldZ + 13]}
+            rotationY={(3 * Math.PI) / 4}
+            mode={Math.abs(chunkX * 3 + chunkZ * 7) % AD_MODES}
+          />
+        </SafeModel>
+      )}
 
       {/* 4. Realistic 3D Vehicles driving the roads (wrapped so a heavy/broken
           car model can't black-screen the whole scene). */}

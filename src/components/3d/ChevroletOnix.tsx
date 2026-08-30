@@ -5,6 +5,7 @@ import { RigidBody } from '@react-three/rapier';
 import { useWorldStore } from '../../stores/useWorldStore';
 import { soundManager } from '../../audio/SoundManager';
 import { InspectableObject } from '../../types';
+import { mergeByMaterial } from '../../utils/mergeByMaterial';
 
 interface ChevroletOnixProps {
   position: [number, number, number];
@@ -38,7 +39,10 @@ export const ChevroletOnix: React.FC<ChevroletOnixProps> = ({ position, rotation
   const { scene } = useGLTF(MODEL_PATH);
 
   const { modelGroup, colliderSize } = useMemo(() => {
-    const cloned = scene.clone(true);
+    // Merge the raw import (442 sub-meshes / 1266 nodes) down to ~one mesh per
+    // material: ~15 draw calls instead of 442, identical look. It's the showcase
+    // hero (only one on screen), so it keeps its shadows.
+    const cloned = mergeByMaterial(scene);
 
     cloned.traverse((child) => {
       if (child instanceof THREE.Mesh) {

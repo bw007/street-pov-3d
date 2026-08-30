@@ -14,6 +14,10 @@ export const PROP_URLS = {
   vase: `${BASE_URL}models/props/flower_vase.glb`,
   kiosk: `${BASE_URL}models/props/kiosk.glb`,
   atm: `${BASE_URL}models/props/atm_machine.glb`,
+  vending: `${BASE_URL}models/props/vending_machine.glb`,
+  hospitalDoor: `${BASE_URL}models/props/hospital_door.glb`, // building front entrance
+  metalDoor: `${BASE_URL}models/props/door_door_metal.glb`,  // building back door
+  eudPanel: `${BASE_URL}models/props/eud_stand_panel.glb`,   // small standing LED ad panel
 };
 
 const NO_RAYCAST = () => {};
@@ -189,3 +193,7 @@ export const PropModel: React.FC<PropModelProps> = ({
 useGLTF.preload(PROP_URLS.vase);
 useGLTF.preload(PROP_URLS.kiosk);
 useGLTF.preload(PROP_URLS.atm);
+useGLTF.preload(PROP_URLS.vending);
+useGLTF.preload(PROP_URLS.hospitalDoor);
+useGLTF.preload(PROP_URLS.metalDoor);
+useGLTF.preload(PROP_URLS.eudPanel);

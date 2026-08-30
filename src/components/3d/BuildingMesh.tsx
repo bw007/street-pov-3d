@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import * as THREE from 'three';
 import { Instances, Instance } from '@react-three/drei';
 import { RigidBody } from '@react-three/rapier';
 import { BuildingData, InspectableObject } from '../../types';
@@ -13,6 +14,42 @@ const SIGN_TEXTS = ['SUPERMARKET', 'COFFEE & BAKERY', 'BANK', 'APTEKA 24/7', 'RE
 const SIGN_COLORS = ['#3b82f6', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6', '#06b6d4'];
 const WINDOW_H = 1.6;
 const WINDOW_W = 1.4;
+
+// A cheap white "double-glazed" window frame: an outer border with a centre
+// mullion and two pane openings, built once as a flat ShapeGeometry and shared
+// by every window instance (so all a tower's windows still cost ~one draw call).
+// A glass plane sits just behind it. This restyles the old single blue plane to
+// read as a framed white double window without per-window model geometry.
+const buildWindowFrameGeometry = (): THREE.BufferGeometry => {
+  const w = WINDOW_W;
+  const h = WINDOW_H;
+  const b = 0.11; // frame border thickness
+  const m = 0.05; // half-width of the centre mullion
+  const outer = new THREE.Shape();
+  outer.moveTo(-w / 2, -h / 2);
+  outer.lineTo(w / 2, -h / 2);
+  outer.lineTo(w / 2, h / 2);
+  outer.lineTo(-w / 2, h / 2);
+  outer.lineTo(-w / 2, -h / 2);
+  const pane = (x0: number, x1: number): THREE.Path => {
+    const p = new THREE.Path();
+    p.moveTo(x0, -h / 2 + b);
+    p.lineTo(x1, -h / 2 + b);
+    p.lineTo(x1, h / 2 - b);
+    p.lineTo(x0, h / 2 - b);
+    p.lineTo(x0, -h / 2 + b);
+    return p;
+  };
+  outer.holes.push(pane(-w / 2 + b, -m), pane(m, w / 2 - b));
+  const geo = new THREE.ShapeGeometry(outer);
+  geo.translate(0, 0, 0.03); // nudge the frame just in front of the glass pane
+  return geo;
+};
+const WINDOW_FRAME_GEO = buildWindowFrameGeometry();
+
+// Yaw that turns a window's local +Z (its outward face) toward the wall it sits on.
+const faceRotation = (face: 'front' | 'back' | 'left' | 'right'): number =>
+  face === 'left' ? -Math.PI / 2 : face === 'right' ? Math.PI / 2 : face === 'back' ? Math.PI : 0;
 
 export const BuildingMesh: React.FC<BuildingMeshProps> = ({ building }) => {
   const { id, position, size, color, roofColor, floors, type } = building;
@@ -212,29 +249,28 @@ export const BuildingMesh: React.FC<BuildingMeshProps> = ({ building }) => {
           </group>
         ))}
 
-        {/* 6. Windows — all windows on a building share the same size and
-            material, differing only by transform, so they're batched into a
-            single instanced draw call instead of one mesh each (a 15-floor
-            tower can have 250+ windows). */}
+        {/* 6. Windows — framed white double-glazed windows. The white frame and
+            the glass pane are each instanced across every window on the building
+            (two draw calls total, not one per window — a 15-floor tower can have
+            250+ windows). */}
         <Instances limit={Math.max(windowProps.length, 1)} range={windowProps.length}>
-          <planeGeometry args={[WINDOW_W, WINDOW_H]} />
+          <planeGeometry args={[WINDOW_W - 0.18, WINDOW_H - 0.18]} />
           <meshStandardMaterial
-            color={isNight ? '#fef08a' : '#93c5fd'}
-            roughness={0.1}
-            metalness={0.8}
+            color={isNight ? '#fde68a' : '#bcd7f2'}
+            roughness={0.15}
+            metalness={0.6}
             emissive={windowEmissive}
             emissiveIntensity={windowEmissiveIntensity}
           />
           {windowProps.map((w, i) => (
-            <Instance
-              key={i}
-              position={[w.x, w.y, w.z]}
-              rotation={[
-                0,
-                w.face === 'left' ? -Math.PI / 2 : w.face === 'right' ? Math.PI / 2 : w.face === 'back' ? Math.PI : 0,
-                0,
-              ]}
-            />
+            <Instance key={i} position={[w.x, w.y, w.z]} rotation={[0, faceRotation(w.face), 0]} />
+          ))}
+        </Instances>
+        <Instances limit={Math.max(windowProps.length, 1)} range={windowProps.length}>
+          <primitive object={WINDOW_FRAME_GEO} attach="geometry" dispose={null} />
+          <meshStandardMaterial color="#eef2f6" roughness={0.6} metalness={0.05} />
+          {windowProps.map((w, i) => (
+            <Instance key={i} position={[w.x, w.y, w.z]} rotation={[0, faceRotation(w.face), 0]} />
           ))}
         </Instances>
       </group>
